@@ -294,8 +294,7 @@ function Page() {
                   onChange={(e) => setInterviewTime(e.target.value)}
                   className={SelectClasses}
                 >
-                                    <option value="1">1 Minutes (Demo)</option>
-
+                <option value="2">2 Minutes (Demo)</option>
                   <option value="5">5 Minutes (Quick)</option>
                   <option value="15">15 Minutes (Standard)</option>
                   <option value="30">30 Minutes (Deep Dive)</option>

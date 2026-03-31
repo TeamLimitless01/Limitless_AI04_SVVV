@@ -14,8 +14,10 @@ import {
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, RotateCcw, ChevronRight, Calendar, Target, Layers, Sparkles, X } from "lucide-react";
+import { FileText, RotateCcw, ChevronRight, Calendar, Target, Layers, Sparkles, X, DownloadCloud, Loader2 } from "lucide-react";
 import InterviewReport from "./ReportUi";
+import { jsPDF } from "jspdf";
+import toast from "react-hot-toast";
 
 export default function ReportsPage() {
   const { data: user } = useSession<any>();
@@ -26,6 +28,154 @@ export default function ReportsPage() {
   });
 
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
+  const [isGeneratingNotes, setIsGeneratingNotes] = useState<string | null>(null);
+
+  const handleGenerateNotes = async (interview: any) => {
+    setIsGeneratingNotes(interview.id || interview.documentId);
+    try {
+      if (!interview.conversation || interview.conversation.length === 0) {
+        toast.error("No conversation logs found for this interview.");
+        return;
+      }
+      
+      const toastId = toast.loading("AI is generating notes...");
+      
+      const response = await fetch("/api/interview/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: interview.conversation?.map((c:any) => c.content),
+          interviewDetails: {
+            topic: interview.details,
+            skills: interview.skills,
+            mode: interview.mode || 'Technical'
+          }
+        }),
+      });
+      
+      if (!response.ok) throw new Error("API failed");
+      const data = await response.json();
+      
+      const candidateName = interview?.candidateName || "Candidate";
+
+      const doc = new jsPDF();
+      let y = 30;
+
+      // Header strip (Branding)
+      doc.setFillColor(30, 64, 175); // Dark blue theme
+      doc.rect(0, 0, 210, 40, 'F');
+      
+      // Branding text (White)
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(26);
+      doc.text("NeuraView", 15, 24);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("AI Interview Intelligence", 15, 32);
+      
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "italic");
+      doc.text("Study Notes & Insights", 195, 24, { align: "right" });
+
+      y = 55;
+      
+      // Info box for Candidate
+      doc.setFillColor(245, 247, 250);
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(15, y, 180, 30, 'FD');
+      
+      doc.setFontSize(11);
+      doc.setTextColor(50, 50, 50);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Candidate:`, 20, y + 9);
+      doc.setFont("helvetica", "normal");
+      doc.text(candidateName, 45, y + 9);
+      
+      doc.setFont("helvetica", "bold");
+      doc.text(`Role:`, 20, y + 18);
+      doc.setFont("helvetica", "normal");
+      doc.text(interview.details || "Untitled Assessment", 45, y + 18);
+      
+      doc.setFont("helvetica", "bold");
+      doc.text(`Skills Focus:`, 20, y + 27);
+      doc.setFont("helvetica", "normal");
+      doc.text(interview.skills || "N/A", 45, y + 27);
+      
+      y += 45;
+      doc.setTextColor(30, 30, 30);
+      
+      if (data.notes && Array.isArray(data.notes)) {
+        data.notes.forEach((note: any, index: number) => {
+          if (y > 260) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.setFontSize(14);
+          doc.setFont("helvetica", "bold");
+          const questionLines = doc.splitTextToSize(`Q${index + 1}: ${note.question}`, 180);
+          doc.text(questionLines, 15, y);
+          y += (questionLines.length * 7) + 6;
+
+          doc.setFontSize(12);
+
+          if (note.candidate_answer) {
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(30, 30, 30);
+            doc.text("Your Answer:", 15, y);
+            y += 6;
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(90, 90, 90);
+            const userAnsLines = doc.splitTextToSize(note.candidate_answer, 180);
+            doc.text(userAnsLines, 15, y);
+            y += (userAnsLines.length * 6) + 8;
+            if (y > 270) { doc.addPage(); y = 20; }
+          }
+          
+          doc.setTextColor(30, 30, 30);
+          doc.setFont("helvetica", "normal");
+          if (note.key_points && note.key_points.length > 0) {
+            doc.setFont("helvetica", "bold");
+            doc.text("Key Points:", 15, y);
+            y += 6;
+            doc.setFont("helvetica", "normal");
+            note.key_points.forEach((point: string) => {
+              if (y > 275) { doc.addPage(); y = 20; }
+              const pointLines = doc.splitTextToSize(`• ${point}`, 170);
+              doc.text(pointLines, 20, y);
+              y += (pointLines.length * 6);
+            });
+            y += 5;
+          }
+          
+          if (note.suggested_answer_summary) {
+            if (y > 265) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica", "bold");
+            doc.text("Ideal Answer Summary:", 15, y);
+            y += 6;
+            doc.setFont("helvetica", "italic");
+            const answerLines = doc.splitTextToSize(note.suggested_answer_summary, 180);
+            doc.text(answerLines, 15, y);
+            y += (answerLines.length * 6) + 15;
+          }
+        });
+      } else {
+        doc.setFontSize(12);
+        doc.text("No questions detected or could not extract notes.", 15, y);
+      }
+      
+      doc.save(`Interview_Notes_${interview.id || interview.documentId}.pdf`);
+      toast.dismiss(toastId);
+      toast.success("Notes downloaded as PDF!");
+    } catch(err) {
+      console.error(err);
+      toast.dismiss();
+      toast.error("Failed to generate notes. Please try again.");
+    } finally {
+      setIsGeneratingNotes(null);
+    }
+  };
 
   const interviews: any[] = data?.data || [];
 
@@ -139,6 +289,18 @@ export default function ReportsPage() {
                       >
                         View Report
                         <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </Button>
+                      <Button
+                        onClick={() => handleGenerateNotes(interview)}
+                        disabled={isGeneratingNotes === (interview.id || interview.documentId)}
+                        className="h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/30 hover:text-indigo-300 font-bold w-full transition-all"
+                      >
+                        {isGeneratingNotes === (interview.id || interview.documentId) ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <DownloadCloud className="mr-2 h-4 w-4" />
+                        )}
+                        {isGeneratingNotes === (interview.id || interview.documentId) ? "Synthesizing AI Notes..." : "Get PDF Notes"}
                       </Button>
                       <Button
                         variant="ghost"
