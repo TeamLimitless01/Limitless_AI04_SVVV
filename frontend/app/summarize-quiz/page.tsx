@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, FileText, Brain, PlayCircle, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 interface QuizQuestion {
   question: string;
@@ -53,7 +54,7 @@ export default function SummarizeQuizPage() {
 
     try {
       const formData = new FormData();
-      formData.append("pdf", selectedFile);
+      formData.append("file", selectedFile);
 
       // Simulate progress updates
       const progressInterval = setInterval(() => {
@@ -261,9 +262,25 @@ export default function SummarizeQuizPage() {
           <CardContent>
             {summary ? (
               <div className="space-y-4">
-                <div className="prose prose-sm max-w-none">
-                  <div className="bg-gray-800 p-4 rounded-lg">
-                    <p className="text-gray-200 leading-relaxed">{summary}</p>
+                <div className="prose prose-sm max-w-none prose-invert">
+                  <div className="bg-gray-800 p-6 rounded-lg text-gray-200 leading-relaxed">
+                    <ReactMarkdown
+                      components={{
+                        h1: ({children}) => <h1 className="text-xl font-bold text-white mb-4">{children}</h1>,
+                        h2: ({children}) => <h2 className="text-lg font-semibold text-white mb-3">{children}</h2>,
+                        h3: ({children}) => <h3 className="text-base font-semibold text-white mb-2">{children}</h3>,
+                        p: ({children}) => <p className="mb-3 text-gray-200">{children}</p>,
+                        ul: ({children}) => <ul className="list-disc list-inside mb-3 text-gray-200 space-y-1">{children}</ul>,
+                        ol: ({children}) => <ol className="list-decimal list-inside mb-3 text-gray-200 space-y-1">{children}</ol>,
+                        li: ({children}) => <li className="text-gray-200">{children}</li>,
+                        strong: ({children}) => <strong className="text-white font-semibold">{children}</strong>,
+                        em: ({children}) => <em className="text-gray-100 italic">{children}</em>,
+                        code: ({children}) => <code className="bg-gray-700 px-2 py-1 rounded text-gray-100 text-sm">{children}</code>,
+                        blockquote: ({children}) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-300">{children}</blockquote>,
+                      }}
+                    >
+                      {summary}
+                    </ReactMarkdown>
                   </div>
                 </div>
                 <Button
