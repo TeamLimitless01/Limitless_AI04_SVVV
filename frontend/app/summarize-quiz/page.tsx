@@ -164,31 +164,31 @@ export default function SummarizeQuizPage() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
+    <div className="container mx-auto py-8 px-4 max-w-6xl bg-black min-h-screen text-white">
       <div className="mb-8 text-center">
-        <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
           AI-Powered Summarize & Quiz
         </h1>
-        <p className="text-gray-600 text-lg">
+        <p className="text-gray-300 text-lg">
           Upload your PDF notes, get AI-powered summaries, and generate interactive quizzes
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Upload Section */}
-        <Card>
+        <Card className="bg-gray-900 border-gray-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-white">
               <Upload className="h-5 w-5" />
               Upload PDF Notes
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-400">
               Select a PDF file containing your study notes to get started
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div
-              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 transition-colors"
+              className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 transition-colors bg-gray-800"
               onClick={() => fileInputRef.current?.click()}
             >
               <input
@@ -202,7 +202,7 @@ export default function SummarizeQuizPage() {
                 <div className="space-y-2">
                   <FileText className="h-12 w-12 mx-auto text-blue-600" />
                   <p className="font-medium">{selectedFile.name}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-400">
                     {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                 </div>
@@ -210,7 +210,7 @@ export default function SummarizeQuizPage() {
                 <div className="space-y-2">
                   <Upload className="h-12 w-12 mx-auto text-gray-400" />
                   <p className="font-medium">Click to upload PDF</p>
-                  <p className="text-sm text-gray-500">or drag and drop</p>
+                  <p className="text-sm text-gray-400">or drag and drop</p>
                 </div>
               )}
             </div>
@@ -248,13 +248,13 @@ export default function SummarizeQuizPage() {
         </Card>
 
         {/* Summary Section */}
-        <Card>
+        <Card className="bg-gray-900 border-gray-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-white">
               <FileText className="h-5 w-5" />
               AI Summary
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-400">
               Get a concise summary of your PDF notes powered by AI
             </CardDescription>
           </CardHeader>
@@ -262,8 +262,8 @@ export default function SummarizeQuizPage() {
             {summary ? (
               <div className="space-y-4">
                 <div className="prose prose-sm max-w-none">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-gray-700 leading-relaxed">{summary}</p>
+                  <div className="bg-gray-800 p-4 rounded-lg">
+                    <p className="text-gray-200 leading-relaxed">{summary}</p>
                   </div>
                 </div>
                 <Button
@@ -285,8 +285,8 @@ export default function SummarizeQuizPage() {
                 </Button>
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <div className="text-center py-8 text-gray-400">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-gray-600" />
                 <p>Upload and summarize a PDF to see the summary here</p>
               </div>
             )}
@@ -296,13 +296,13 @@ export default function SummarizeQuizPage() {
 
       {/* Quiz Section */}
       {quiz.length > 0 && (
-        <Card className="mt-8">
+        <Card className="mt-8 bg-gray-900 border-gray-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-white">
               <Brain className="h-5 w-5" />
               Interactive Quiz
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-400">
               Test your knowledge with questions generated from your notes
             </CardDescription>
           </CardHeader>
@@ -310,7 +310,7 @@ export default function SummarizeQuizPage() {
             {!showResults ? (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">
+                  <span className="text-sm font-medium text-white">
                     Question {currentQuestionIndex + 1} of {quiz.length}
                   </span>
                   <div className="flex gap-1">
@@ -339,8 +339,8 @@ export default function SummarizeQuizPage() {
                         key={index}
                         className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                           selectedAnswers[currentQuestionIndex] === index
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-gray-200 hover:border-gray-300"
+                            ? "border-blue-500 bg-blue-900"
+                            : "border-gray-600 bg-gray-800 hover:border-gray-500"
                         }`}
                         onClick={() => handleAnswerSelect(index)}
                       >
@@ -356,7 +356,7 @@ export default function SummarizeQuizPage() {
                               <div className="w-full h-full rounded-full bg-white scale-50" />
                             )}
                           </div>
-                          <span>{option}</span>
+                          <span className="text-white">{option}</span>
                         </div>
                       </div>
                     ))}
@@ -382,12 +382,12 @@ export default function SummarizeQuizPage() {
             ) : (
               <div className="text-center space-y-6">
                 <div className="space-y-2">
-                  <CheckCircle className="h-16 w-16 mx-auto text-green-500" />
-                  <h3 className="text-2xl font-bold">Quiz Completed!</h3>
-                  <p className="text-lg">
+                  <CheckCircle className="h-16 w-16 mx-auto text-green-400" />
+                  <h3 className="text-2xl font-bold text-white">Quiz Completed!</h3>
+                  <p className="text-lg text-white">
                     Your Score: {quizScore} out of {quiz.length}
                   </p>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-300">
                     {quizScore === quiz.length
                       ? "Perfect! You mastered all the concepts."
                       : quizScore >= quiz.length * 0.7
@@ -399,29 +399,29 @@ export default function SummarizeQuizPage() {
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="font-semibold">Review Your Answers:</h4>
+                  <h4 className="font-semibold text-white">Review Your Answers:</h4>
                   {quiz.map((question, index) => (
                     <div
                       key={index}
                       className={`p-4 rounded-lg border ${
                         selectedAnswers[index] === question.correctAnswer
-                          ? "bg-green-50 border-green-200"
-                          : "bg-red-50 border-red-200"
+                          ? "bg-green-900 border-green-700"
+                          : "bg-red-900 border-red-700"
                       }`}
                     >
                       <div className="flex items-start gap-2">
                         {selectedAnswers[index] === question.correctAnswer ? (
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
+                          <CheckCircle className="h-5 w-5 text-green-400 mt-0.5" />
                         ) : (
-                          <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
+                          <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
                         )}
                         <div className="flex-1 text-left">
-                          <p className="font-medium text-sm">{question.question}</p>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="font-medium text-sm text-white">{question.question}</p>
+                          <p className="text-sm text-gray-300 mt-1">
                             Your answer: {question.options[selectedAnswers[index]]}
                           </p>
                           {selectedAnswers[index] !== question.correctAnswer && (
-                            <p className="text-sm text-green-600 mt-1">
+                            <p className="text-sm text-green-400 mt-1">
                               Correct answer: {question.options[question.correctAnswer]}
                             </p>
                           )}
