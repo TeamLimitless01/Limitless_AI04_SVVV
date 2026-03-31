@@ -275,12 +275,6 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
             </div>
           </div>
 
-          <div className="flex-1 flex justify-center">
-            <div className={`text-2xl font-mono font-bold px-5 py-2 rounded-2xl border ${timeLeft <= 60 ? "text-red-400 border-red-500/30 bg-red-500/10" : "text-white bg-white/5 border-white/10"}`}>
-              {formatTime(timeLeft)}
-            </div>
-          </div>
-
           <div className="flex-1 flex justify-end gap-4">
             <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
               <Label htmlFor="speech-mode" className="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white/60 transition-colors cursor-pointer">
@@ -327,10 +321,8 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
             >
               <div className="p-6 border-b border-white/10 bg-white/[0.02] flex items-center justify-between">
                 <span className="text-xs font-semibold tracking-widest text-white/40 uppercase">Conversation Feed</span>
-                <div className="flex gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                <div className={`text-sm md:text-base font-mono font-bold px-4 py-1.5 rounded-xl border flex items-center shadow-lg backdrop-blur-md transition-colors ${timeLeft <= 60 ? "text-red-400 border-red-500/30 bg-red-500/10 animate-pulse" : "text-emerald-400 border-emerald-500/20 bg-emerald-500/10"}`}>
+                  ⏱ {formatTime(timeLeft)}
                 </div>
               </div>
 
