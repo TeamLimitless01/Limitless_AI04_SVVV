@@ -18,7 +18,6 @@ const Navbar = () => {
     { href: "/roadmap-chat", label: "Our Services" },
     { href: "/dashboard", label: "Dashboard" },
     { href: "/reports", label: "Reports" },
-    { href: "/jobs", label: "Career Jobs" },
   ];
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);

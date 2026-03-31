@@ -63,21 +63,27 @@ export async function POST(request: NextRequest) {
     // Strip rough HTML tags to lower token count
     resumeText = resumeText.replace(/<[^>]*>?/gm, ' ');
 
-    // Use Sarvam AI model natively to extract Skills
+    // Use Sarvam AI model natively to extract Skills, Summary, and Improvements
     const prompt = `
-You are an expert tech recruiter scanning a candidate's resume.
-Extract the top core professional and technical skills from the following resume text.
-Only extract clear, distinct skills (e.g. "React", "Python", "Data Analysis", "Project Management").
+You are an expert tech recruiter and career coach scanning a candidate's resume.
+Review the resume text below and provide a concise professional evaluation.
 
 RESUME TEXT:
 ${resumeText.substring(0, 15000)}
 
 TASK:
-Return ONLY a valid JSON object matching exactly this structure containing a list of strings:
+Return ONLY a valid JSON object matching EXACTLY this structure:
 {
-  "skills": ["skill1", "skill2"]
+  "skills": ["top 5-10 technical/professional skill strings"],
+  "summary": "a 2-3 sentence professional summary of the candidate's profile",
+  "improvements": ["improvement 1", "improvement 2", "improvement 3"] 
 }
-Limit to maximum top 5-10 most important skills that will be usefull to get a job no unrelated texts. Return absolutely no other text, just the raw JSON.
+
+RULES:
+1. Extract only clear, distinct skills.
+2. The summary should be impactful and highlight seniority/specialization.
+3. Improvements should be specific to the resume (e.g., 'Add more quantitative metrics', 'Focus more on React hooks in projects section').
+4. Return ABSOLUTELY NO OTHER TEXT, just the raw JSON.
 `;
 
     const apiRes = await fetch("https://api.sarvam.ai/v1/chat/completions", {
@@ -99,9 +105,13 @@ Limit to maximum top 5-10 most important skills that will be usefull to get a jo
     let content = data.choices?.[0]?.message?.content || "";
     content = content.replace(/```json\s*|\s*```/g, "").trim();
 
-    const parsedSkills = JSON.parse(content);
-
-    return NextResponse.json({ success: true, skills: parsedSkills.skills || [] });
+    const parsedResponse = JSON.parse(content);
+    return NextResponse.json({ 
+      success: true, 
+      skills: parsedResponse.skills || [],
+      summary: parsedResponse.summary || "No summary available.",
+      improvements: parsedResponse.improvements || []
+    });
 
   } catch (error) {
     console.error("Error processing Resume PDF:", error);
