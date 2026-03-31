@@ -80,7 +80,7 @@ INTERVIEW CONFIG:
 - Skills: ${skills}
 - Difficulty: ${difficulty}
 - Total Interview Time: ${numOfQuestions} minutes
-- Interview Language(Strickly use): ${interviewLanguage}
+- Interview Language(Strickly use fonts of): ${interviewLanguage}
 - Interview Mode: ${interviewMode} (HR or Technical)
 
 SAFETY RULES:
