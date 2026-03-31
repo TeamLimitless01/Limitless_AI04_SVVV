@@ -94,12 +94,12 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "sarvam-m", // 🔥 or check latest models
+        model: "sarvam-105b", // 🔥 or check latest models
         messages: [
           {
             role: "system",
             content:
-              "You are an expert document summarizer. Summarize clearly in bullet points. and summarize in 50 to 60 words only don't use more then 60 words. If the document is not in English, translate it to English first and then summarize.",
+              "Summarize clearly in bullet points. and summarize in 50 to 60 words only don't use more then 60 words. return only the summary don't return anything else and unwanted text, also don't return any introductory or concluding text. don't include any text other than the summary.  don't include ai speech, return only pure summary.",
           },
           {
             role: "user",
