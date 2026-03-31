@@ -17,7 +17,7 @@ function Page() {
   const [difficulty, setDifficulty] = React.useState("medium");
   const [skills, setSkills] = React.useState("");
   const [topic, setTopic] = React.useState("");
-  const [questions, setQuestions] = React.useState("10");
+  const [interviewTime, setInterviewTime] = React.useState("15");
   const [interviewLanguage, setInterviewLanguage] = React.useState("english");
   const router = useRouter();
   const { data } = useSession<any>();
@@ -37,7 +37,7 @@ function Page() {
         difficulty,
         skills: skills.split(" ").join(","),
         topic,
-        questions,
+        interviewTime,
       };
 
       if (!candidateName) {
@@ -58,8 +58,8 @@ function Page() {
       if (!topic) {
         return toast.error("Please provide job role");
       }
-      if (!questions) {
-        return toast.error("Please select number of questions");
+      if (!interviewTime) {
+        return toast.error("Please select interview time");
       }
       if (!interviewLanguage) {
         return toast.error("Please select interview language");
@@ -81,7 +81,7 @@ function Page() {
         difficulty: difficulty,
         skills: skills,
         details: topic,
-        numberOfQuestions: parseInt(questions),
+        interviewTime: parseInt(interviewTime),
         user: data && data.user.id,
         candidateName: candidateName || "",
         interviewLanguage: interviewLanguage,
@@ -282,23 +282,25 @@ function Page() {
               </div>
             </Step>
 
-            {/* Step 4: Number of Questions */}
+            {/* Step 4: Interview Time */}
             <Step>
               <div className={CardClasses}>
                 <h2 className="text-2xl font-bold text-indigo-700 mb-6">
                   Step 4: Interview Length ⏱️
                 </h2>
-                <label className={LabelClasses}>Number of Questions</label>
+                <label className={LabelClasses}>Interview Time (Minutes)</label>
                 <select
-                  value={questions}
-                  onChange={(e) => setQuestions(e.target.value)}
+                  value={interviewTime}
+                  onChange={(e) => setInterviewTime(e.target.value)}
                   className={SelectClasses}
                 >
-                  <option value="3">3 Questions (Quick)</option>
-                  <option value="5">5 Questions (Quick)</option>
-                  <option value="10">10 Questions (Standard)</option>
-                  <option value="15">15 Questions (Deep Dive)</option>
-                  <option value="20">20 Questions (Comprehensive)</option>
+                                    <option value="1">1 Minutes (Demo)</option>
+
+                  <option value="5">5 Minutes (Quick)</option>
+                  <option value="15">15 Minutes (Standard)</option>
+                  <option value="30">30 Minutes (Deep Dive)</option>
+                  <option value="45">45 Minutes (Comprehensive)</option>
+                  <option value="60">60 Minutes (Exhaustive)</option>
                 </select>
               </div>
             </Step>

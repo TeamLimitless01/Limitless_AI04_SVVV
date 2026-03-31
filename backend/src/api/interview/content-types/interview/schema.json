@@ -43,7 +43,7 @@
       "target": "plugin::users-permissions.user",
       "inversedBy": "interviews"
     },
-    "numberOfQuestions": {
+    "interviewTime": {
       "type": "integer"
     },
     "resume": {
