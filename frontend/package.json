@@ -40,6 +40,7 @@
     "@radix-ui/react-tooltip": "1.1.6",
     "@tabler/icons-react": "^3.35.0",
     "@vercel/analytics": "latest",
+    "adm-zip": "^0.5.16",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.7.0",
@@ -81,6 +82,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
+    "@types/adm-zip": "^0.5.8",
     "@types/node": "^22",
     "@types/react": "^18",
     "@types/react-dom": "^18",

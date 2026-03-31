@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error processing PDF:", error);
     return NextResponse.json(
-      { 
+      {
         error: "Failed to process PDF",
         details: error instanceof Error ? error.message : "Unknown error"
       },
