@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     // ✅ Step 2: Upload file
     const buffer = Buffer.from(await file.arrayBuffer());
-    await job.uploadFile(buffer, file.name);
+    await job.uploadFile(buffer, file?.name);
 
     console.log("File uploaded:", file.name);
 
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
           {
             role: "system",
             content:
-              "Summarize clearly in bullet points. and summarize in 50 to 60 words only don't use more then 60 words. return only the summary don't return anything else and unwanted text, also don't return any introductory or concluding text. don't include any text other than the summary.  don't include ai speech, return only pure summary.",
+              "Summarize clearly in bullet points. and summarize in 150 to 200 words only don't use more then 200 words. return only the summary don't return anything else and unwanted text, also don't return any introductory or concluding text. don't include any text other than the summary.  don't include ai speech, return only pure summary.",
           },
           {
             role: "user",
