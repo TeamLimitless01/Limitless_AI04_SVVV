@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
 
     // ✅ Step 2: Upload file
     const buffer = Buffer.from(await file.arrayBuffer());
+    //@ts-ignore
     await job.uploadFile(buffer, file?.name);
 
     console.log("File uploaded:", file.name);

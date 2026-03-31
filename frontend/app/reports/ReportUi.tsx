@@ -91,18 +91,18 @@ export default function InterviewReport({ report }: { report?: any }) {
             <p className="text-sm text-slate-400 font-medium">{formatName(candidateInfo.jobRole)}</p>
           </motion.div>
 
-          {/* Performance Card */}
+          {/* Performance Card - Replaced Decision with Overall Score */}
           <motion.div variants={itemVariants} className="glass-card p-6 rounded-[2rem] border-white/5 bg-white/[0.02]">
             <div className="flex items-center gap-4 mb-4">
               <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400">
                 <TrendingUp className="h-5 w-5" />
               </div>
-              <span className="text-xs font-black uppercase tracking-widest text-slate-500">Decision</span>
+              <span className="text-xs font-black uppercase tracking-widest text-slate-500">Overall Score</span>
             </div>
-            <h3 className={`text-xl font-bold mb-1 ${overallPerformance.hiringRecommendation === 'Yes' ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {overallPerformance.hiringRecommendation === 'Yes' ? 'Recommended' : overallPerformance.hiringRecommendation === 'Maybe' ? 'Needs Review' : 'Rejected'}
+            <h3 className="text-3xl font-black text-white mb-1">
+              {scores.overall || 0}<span className="text-lg text-slate-500 font-bold">/10</span>
             </h3>
-            <p className="text-sm text-slate-400 font-medium line-clamp-1">{overallPerformance.justification || 'No justification provided.'}</p>
+            <p className="text-sm text-slate-400 font-medium line-clamp-1">{overallPerformance.summary || 'Performance evaluation completed.'}</p>
           </motion.div>
 
           {/* Skills Card */}
