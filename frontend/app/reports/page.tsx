@@ -77,7 +77,7 @@ export default function ReportsPage() {
       
       doc.setFontSize(14);
       doc.setFont("helvetica", "italic");
-      doc.text("Study Notes & Insights", 195, 24, { align: "right" });
+      doc.text("", 195, 24, { align: "right" });
 
       y = 55;
       
@@ -300,7 +300,7 @@ export default function ReportsPage() {
                         ) : (
                           <DownloadCloud className="mr-2 h-4 w-4" />
                         )}
-                        {isGeneratingNotes === (interview.id || interview.documentId) ? "Synthesizing AI Notes..." : "Get PDF Notes"}
+                        {isGeneratingNotes === (interview.id || interview.documentId) ? "Analysing conversation..." : "Improvements"}
                       </Button>
                       <Button
                         variant="ghost"

@@ -43,12 +43,10 @@ Your task: Generate a **structured interview report strictly in RAW JSON format*
   },
   "overallPerformance": {
     "summary": string,
-    "hiringRecommendation": "Yes" | "Maybe" | "No",
     "justification": string
   },
   "summaryAndNextSteps": {
     "finalSummary": string,
-    "recommendation": "Yes" | "Maybe" | "No",
     "rationale": string[],
     "actionableNextSteps": string[]
   },

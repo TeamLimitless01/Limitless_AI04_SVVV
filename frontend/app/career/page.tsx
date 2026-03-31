@@ -41,7 +41,7 @@ export default function CareerHubPage() {
     }
     
     setIsExtracting(true);
-    const loadingToast = toast.loading("Analyzing resume with Sarvam AI...");
+    const loadingToast = toast.loading("Analyzing resume with AI...");
 
     try {
       const formData = new FormData();
@@ -131,61 +131,63 @@ export default function CareerHubPage() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-slate-900/90 border border-white/10 rounded-[3rem] p-10 md:p-14 shadow-2xl overflow-hidden"
+              className="relative w-full max-w-md max-h-[85vh] bg-slate-900/95 border border-white/10 rounded-[2rem] shadow-2xl overflow-hidden flex flex-col"
             >
               {/* Decorative gradient */}
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/20 blur-3xl rounded-full" />
+              <div className="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500/20 blur-2xl rounded-full pointer-events-none" />
               
               <button 
                 onClick={() => setShowAIInsights(false)}
-                className="absolute top-8 right-8 p-2 rounded-full hover:bg-white/10 text-slate-400 transition-colors"
+                className="absolute top-5 right-5 z-20 p-2 rounded-full hover:bg-white/10 text-slate-400 transition-colors"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
 
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
-                    <Sparkles className="w-6 h-6 text-indigo-400" />
-                  </div>
-                  <h2 className="text-3xl font-black text-white tracking-tight">AI Resume Evaluation</h2>
-                </div>
-
-                <div className="space-y-8">
-                  {/* Summary Section */}
-                  <section>
-                    <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                       <Info className="w-4 h-4" /> Professional Summary
-                    </h3>
-                    <p className="text-slate-300 text-lg leading-relaxed italic">
-                      "{summary}"
-                    </p>
-                  </section>
-
-                  {/* Improvements Section */}
-                  <section>
-                    <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                       <Target className="w-4 h-4" /> Targeted Improvements
-                    </h3>
-                    <div className="space-y-4">
-                      {improvements.map((imp, idx) => (
-                        <div key={idx} className="flex gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 items-start">
-                          <div className="mt-1 w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xs font-bold shrink-0">
-                            {idx + 1}
-                          </div>
-                          <p className="text-slate-300 font-medium">{imp}</p>
-                        </div>
-                      ))}
+              <div className="flex-1 overflow-y-auto p-8 md:p-10 custom-scrollbar">
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-indigo-400" />
                     </div>
-                  </section>
-                </div>
+                    <h2 className="text-xl font-black text-white tracking-tight">AI Evaluation</h2>
+                  </div>
 
-                <Button 
-                  onClick={() => setShowAIInsights(false)}
-                  className="mt-12 w-full h-14 rounded-2xl bg-white text-black font-bold hover:bg-slate-100 shadow-xl"
-                >
-                  Got it, Thanks!
-                </Button>
+                  <div className="space-y-6">
+                    {/* Summary Section */}
+                    <section>
+                      <h3 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                         <Info className="w-3.5 h-3.5" /> Professional Summary
+                      </h3>
+                      <p className="text-slate-300 text-sm leading-relaxed italic">
+                        "{summary}"
+                      </p>
+                    </section>
+
+                    {/* Improvements Section */}
+                    <section>
+                      <h3 className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                         <Target className="w-3.5 h-3.5" /> Suggestions
+                      </h3>
+                      <div className="space-y-3">
+                        {improvements.map((imp, idx) => (
+                          <div key={idx} className="flex gap-3 p-3.5 rounded-xl bg-white/5 border border-white/5 items-start">
+                            <div className="mt-0.5 w-5 h-5 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-[10px] font-bold shrink-0">
+                              {idx + 1}
+                            </div>
+                            <p className="text-slate-300 text-sm font-medium leading-normal">{imp}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
+
+                  <Button 
+                    onClick={() => setShowAIInsights(false)}
+                    className="mt-10 w-full h-11 rounded-xl bg-white text-black font-bold hover:bg-slate-100 shadow-xl text-sm"
+                  >
+                    Got it, Thanks!
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </div>

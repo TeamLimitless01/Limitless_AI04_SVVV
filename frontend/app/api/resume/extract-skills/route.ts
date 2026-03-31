@@ -106,8 +106,8 @@ RULES:
     content = content.replace(/```json\s*|\s*```/g, "").trim();
 
     const parsedResponse = JSON.parse(content);
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       skills: parsedResponse.skills || [],
       summary: parsedResponse.summary || "No summary available.",
       improvements: parsedResponse.improvements || []
