@@ -98,6 +98,8 @@ The final output must be valid JSON and must be treated as the file content of "
   - Duration > 6 → generate additional months based on pattern.
   - Sanitize invalid characters automatically.
 
+#strict rule : dont ever break the given pattern and syntax
+
 ✅ File Name:
 roadmap.json
 
@@ -113,12 +115,13 @@ Now generate the roadmap in STRICT raw JSON:
       },
       body: JSON.stringify({
         model,
+
         messages: [{ role: "system", content: systemPrompt }],
       }),
     });
 
     const data = await response.json();
-    console.log(data);
+    console.log(data?.choices[0].messa);
     const roadmap =
       data?.choices?.[0]?.message?.content || "No roadmap generated.";
 
