@@ -3,7 +3,7 @@
 import SpotlightCard from "@/components/ui/soptlight-card";
 import Link from "next/link";
 import React, { useState } from "react";
-import { MapPin, MessageSquare, ArrowRight, Eye, Sparkles, LayoutDashboard, BrainCircuit } from "lucide-react";
+import { MapPin, MessageSquare, ArrowRight, Eye, Sparkles, LayoutDashboard, BrainCircuit, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,6 +41,15 @@ const ServicesPage = () => {
       href: "/chat",
       cta: "Chat with Neura"
     },
+    {
+      id: "summarize",
+      title: "AI Summarizer",
+      description: "Transform long PDFs and notes into concise, actionable summaries and interactive quizzes.",
+      icon: FileText,
+      color: "orange",
+      href: "/summarize",
+      cta: "Summarize Now"
+    },
   ];
 
   return (
@@ -73,7 +82,7 @@ const ServicesPage = () => {
         </motion.div>
 
         {/* Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl w-full">
           {cards.map((card, i) => (
             <motion.div
               key={card.id}
@@ -88,6 +97,7 @@ const ServicesPage = () => {
                 spotlightColor={
                   card.color === 'blue' ? 'rgba(59, 130, 246, 0.15)' : 
                   card.color === 'emerald' ? 'rgba(16, 185, 129, 0.15)' : 
+                  card.color === 'orange' ? 'rgba(249, 115, 22, 0.15)' : 
                   'rgba(168, 85, 247, 0.15)'
                 }
               >
