@@ -11,6 +11,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import {
   Brain,
+  Download,
   FileText,
   Loader2,
   Upload
@@ -18,6 +19,7 @@ import {
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { jsPDF } from "jspdf";
 
 interface QuizQuestion {
   question: string;
@@ -98,6 +100,45 @@ export default function SummarizeQuizPage() {
     } finally {
       setIsProcessing(false);
       setProgress(0);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!summary) return;
+
+    try {
+      const doc = new jsPDF();
+      
+      // Set font and size
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(12);
+
+      // Page settings
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const maxWidth = pageWidth - margin * 2;
+      const topMargin = 20;
+      const lineHeight = 15;
+      
+      const lines = doc.splitTextToSize(summary, maxWidth);
+      
+      let cursorY = topMargin;
+
+      lines.forEach((line: string) => {
+        if (cursorY + lineHeight > pageHeight - margin) {
+          doc.addPage();
+          cursorY = margin;
+        }
+        doc.text(line, margin, cursorY);
+        cursorY += lineHeight;
+      });
+      
+      doc.save(`${selectedFile?.name.replace(".pdf", "") || "summary"}_AI_Summary.pdf`);
+      toast.success("PDF downloaded successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF. Please try again.");
     }
   };
 
@@ -196,19 +237,34 @@ export default function SummarizeQuizPage() {
         {/* Summary Section */}
         <Card className="bg-gray-900 border-gray-800">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <FileText className="h-5 w-5" />
-              AI Summary
-            </CardTitle>
-            <CardDescription className="text-gray-400">
-              Get a concise summary of your PDF notes powered by AI
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <FileText className="h-5 w-5" />
+                  AI Summary
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Get a concise summary of your PDF notes powered by AI
+                </CardDescription>
+              </div>
+              {summary && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadPDF}
+                  className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {summary ? (
               <div className="space-y-4">
                 <div className="prose prose-sm max-w-none prose-invert">
-                  <div className="bg-gray-800 p-6 rounded-lg text-gray-200 leading-relaxed">
+                  <div className="bg-gray-800 p-6 rounded-lg text-gray-200 leading-relaxed border border-gray-700 shadow-xl">
                     <ReactMarkdown
                       components={{
                         h1: ({ children }) => (
