@@ -1,0 +1,62 @@
+{
+  "kind": "collectionType",
+  "collectionName": "interviews",
+  "info": {
+    "singularName": "interview",
+    "pluralName": "interviews",
+    "displayName": "interview"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "mode": {
+      "type": "enumeration",
+      "default": "Technical",
+      "enum": [
+        "HR",
+        "Technical"
+      ]
+    },
+    "difficulty": {
+      "type": "enumeration",
+      "default": "medium",
+      "enum": [
+        "easy",
+        "hard",
+        "medium"
+      ]
+    },
+    "skills": {
+      "type": "string"
+    },
+    "details": {
+      "type": "text"
+    },
+    "conversation": {
+      "type": "json"
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "interviews"
+    },
+    "numberOfQuestions": {
+      "type": "integer"
+    },
+    "resume": {
+      "type": "string"
+    },
+    "candidateName": {
+      "type": "string"
+    },
+    "report": {
+      "type": "json"
+    },
+    "interviewLanguage": {
+      "type": "string"
+    }
+  }
+}
