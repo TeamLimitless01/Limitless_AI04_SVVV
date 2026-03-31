@@ -19,7 +19,6 @@ import {
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
-import { jsPDF } from "jspdf";
 
 interface QuizQuestion {
   question: string;
@@ -103,43 +102,8 @@ export default function SummarizeQuizPage() {
     }
   };
 
-  const handleDownloadPDF = async () => {
-    if (!summary) return;
-
-    try {
-      const doc = new jsPDF();
-      
-      // Set font and size
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(12);
-
-      // Page settings
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
-      const maxWidth = pageWidth - margin * 2;
-      const topMargin = 20;
-      const lineHeight = 15;
-      
-      const lines = doc.splitTextToSize(summary, maxWidth);
-      
-      let cursorY = topMargin;
-
-      lines.forEach((line: string) => {
-        if (cursorY + lineHeight > pageHeight - margin) {
-          doc.addPage();
-          cursorY = margin;
-        }
-        doc.text(line, margin, cursorY);
-        cursorY += lineHeight;
-      });
-      
-      doc.save(`${selectedFile?.name.replace(".pdf", "") || "summary"}_AI_Summary.pdf`);
-      toast.success("PDF downloaded successfully!");
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      toast.error("Failed to generate PDF. Please try again.");
-    }
+  const handleDownloadPDF = () => {
+    window.print();
   };
 
  
@@ -151,7 +115,37 @@ export default function SummarizeQuizPage() {
  
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl bg-black min-h-screen text-white">
-      <div className="mb-8 text-center">
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          .print-content, .print-content * {
+            visibility: visible !important;
+          }
+          .print-content {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            color: black !important;
+            background: white !important;
+          }
+          .print-content div {
+            background: white !important;
+            color: black !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+           @page {
+            margin: 2cm;
+          }
+        }
+      `}</style>
+      <div className="mb-8 text-center no-print">
         <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
           AI-Powered Summarize & Quiz
         </h1>
@@ -163,7 +157,7 @@ export default function SummarizeQuizPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Upload Section */}
-        <Card className="bg-gray-900 border-gray-800">
+        <Card className="bg-gray-900 border-gray-800 no-print">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
               <Upload className="h-5 w-5" />
@@ -252,7 +246,7 @@ export default function SummarizeQuizPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleDownloadPDF}
-                  className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
+                  className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700 no-print"
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Download PDF
@@ -262,9 +256,9 @@ export default function SummarizeQuizPage() {
           </CardHeader>
           <CardContent>
             {summary ? (
-              <div className="space-y-4">
-                <div className="prose prose-sm max-w-none prose-invert">
-                  <div className="bg-gray-800 p-6 rounded-lg text-gray-200 leading-relaxed border border-gray-700 shadow-xl">
+              <div className="space-y-4 print-content">
+                <div className="prose prose-sm max-w-none prose-invert print:prose-black">
+                  <div className="bg-gray-800 p-6 rounded-lg text-gray-200 leading-relaxed border border-gray-700 shadow-xl print:bg-white print:text-black print:border-none print:shadow-none">
                     <ReactMarkdown
                       components={{
                         h1: ({ children }) => (
