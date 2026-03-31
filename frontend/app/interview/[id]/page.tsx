@@ -33,6 +33,8 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [stopAnalyticts, setStopAnalyticts] = useState<any>(null);
   const [speechEnabled, setSpeechEnabled] = useState(true);
   const [delayedAiSpeaking, setDelayedAiSpeaking] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [hasAutoSubmitted, setHasAutoSubmitted] = useState(false);
 
   const [showStartModal, setShowStartModal] = useState(true);
 
@@ -71,7 +73,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     topic: interviewData?.[0]?.details || "",
     difficulty: interviewData?.[0]?.difficulty || "medium",
     mode: interviewData?.[0]?.mode || "text",
-    numOfQuestions: interviewData?.[0]?.numberOfQuestions,
+    interviewTime: interviewData?.[0]?.interviewTime || 15,
     skills: interviewData?.[0]?.skills || "",
     username: interviewData?.[0]?.candidateName || "",
     interviewLanguage: interviewData?.[0]?.interviewLanguage || "english",
@@ -124,6 +126,85 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
       return () => clearTimeout(timer);
     }
   }, [isActuallySpeaking]);
+
+  useEffect(() => {
+    if (interviewData && interviewData[0]?.interviewTime) {
+      setTimeLeft(interviewData[0].interviewTime * 60);
+    } else {
+      setTimeLeft(15 * 60);
+    }
+  }, [interviewData]);
+
+  useEffect(() => {
+    if (showStartModal || isInterviewCompleted || timeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [showStartModal, isInterviewCompleted, timeLeft]);
+
+  const handleGenerateReport = async () => {
+    if (isGeneratingReport) return;
+    setIsGeneratingReport(true);
+    setIsInterviewCompleted(true);
+    try {
+      let feed = "";
+      if (stopAnalyticts) {
+        feed = stopAnalyticts();
+      }
+      await strapi.update("interviews", params.id, {
+        conversation: messages,
+      });
+      const res = await fetch("/api/interview/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages,
+          interviewDetails,
+          faceMeshFeedback: feed,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to generate report");
+
+      const report = await res.json();
+      if (report) {
+        await strapi.update("interviews", params.id, {
+          report: JSON.stringify(report),
+        });
+      }
+      toast.success("Report generated!");
+      router.push("/reports");
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not generate report");
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  useEffect(() => {
+    if (timeLeft === 0 && !showStartModal && !hasAutoSubmitted && !isGeneratingReport) {
+      setHasAutoSubmitted(true);
+      stop();
+      setMessages((prev: Message[]) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "The interview time is up. Wrap up and report generation initiated."
+        }
+      ]);
+      toast("Time is up! Wrapping up...", { icon: '⏳' });
+      handleGenerateReport();
+    }
+  }, [timeLeft, showStartModal, hasAutoSubmitted, isGeneratingReport, stop, setMessages]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   if (isLoading) {
     return (
@@ -181,18 +262,26 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
 
       <div className="relative z-10 flex flex-col h-screen max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8">
         {/* Header */}
-        <header className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <Mic className="text-white w-5 h-5" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">Interview Session</h1>
-              <div className="text-[10px] text-white/40 uppercase tracking-widest font-medium">Session ID: {params.id.slice(0, 8)}...</div>
+        <header className="flex items-center justify-between mb-6 w-full relative z-50">
+          <div className="flex-1 flex justify-start">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <Mic className="text-white w-5 h-5" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">Interview Session</h1>
+                <div className="text-[10px] text-white/40 uppercase tracking-widest font-medium">Session ID: {params.id.slice(0, 8)}...</div>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex-1 flex justify-center">
+            <div className={`text-2xl font-mono font-bold px-5 py-2 rounded-2xl border ${timeLeft <= 60 ? "text-red-400 border-red-500/30 bg-red-500/10" : "text-white bg-white/5 border-white/10"}`}>
+              {formatTime(timeLeft)}
+            </div>
+          </div>
+
+          <div className="flex-1 flex justify-end gap-4">
             <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
               <Label htmlFor="speech-mode" className="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white/60 transition-colors cursor-pointer">
                 AI Voice
@@ -269,42 +358,7 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
                   />
                 ) : (
                   <Button
-                    onClick={async () => {
-                      setIsGeneratingReport(true);
-                      try {
-                        let feed = "";
-                        if (stopAnalyticts) {
-                          feed = stopAnalyticts();
-                        }
-                        await strapi.update("interviews", params.id, {
-                          conversation: messages,
-                        });
-                        const res = await fetch("/api/interview/report", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            messages,
-                            interviewDetails,
-                            faceMeshFeedback: feed,
-                          }),
-                        });
-                        if (!res.ok) throw new Error("Failed to generate report");
-
-                        const report = await res.json();
-                        if (report) {
-                          await strapi.update("interviews", params.id, {
-                            report: JSON.stringify(report),
-                          });
-                        }
-                        toast.success("Report generated!");
-                        router.push("/reports");
-                      } catch (err) {
-                        console.error(err);
-                        toast.error("Could not generate report");
-                      } finally {
-                        setIsGeneratingReport(false);
-                      }
-                    }}
+                    onClick={handleGenerateReport}
                     disabled={isGeneratingReport}
                     className="w-full h-16 text-lg font-bold rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-500/20 group"
                   >

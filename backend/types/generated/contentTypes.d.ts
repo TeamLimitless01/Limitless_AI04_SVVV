@@ -450,6 +450,7 @@ export interface ApiInterviewInterview extends Struct.CollectionTypeSchema {
     difficulty: Schema.Attribute.Enumeration<['easy', 'hard', 'medium']> &
       Schema.Attribute.DefaultTo<'medium'>;
     interviewLanguage: Schema.Attribute.String;
+    interviewTime: Schema.Attribute.Integer;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -458,7 +459,6 @@ export interface ApiInterviewInterview extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     mode: Schema.Attribute.Enumeration<['HR', 'Technical']> &
       Schema.Attribute.DefaultTo<'Technical'>;
-    numberOfQuestions: Schema.Attribute.Integer;
     publishedAt: Schema.Attribute.DateTime;
     report: Schema.Attribute.JSON;
     resume: Schema.Attribute.String;
