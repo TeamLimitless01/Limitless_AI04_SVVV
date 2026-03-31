@@ -183,7 +183,7 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
         });
       }
       toast.success("Report generated!");
-      router.push("/reports");
+      router.push(`/reports?interviewId=${params.id}`);
     } catch (err) {
       console.error(err);
       toast.error("Could not generate report");
