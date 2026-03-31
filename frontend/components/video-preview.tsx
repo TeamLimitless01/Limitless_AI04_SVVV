@@ -302,10 +302,8 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
   }, [startFn, stopFn]);
 
   return (
-    <div className="flex h-full w-full flex-col bg-black relative">
-       <div className="absolute inset-0 bg-blue-500/5 blur-[100px] pointer-events-none" />
-       
-       <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+    <div className="flex flex-col gap-6 h-full w-full">
+       <div className="flex-1 relative flex items-center justify-center overflow-hidden rounded-[2.5rem] border border-white/10 bg-black shadow-2xl group">
         <video ref={videoRef} className="hidden" playsInline></video>
         <canvas ref={canvasRef} className="w-full h-full object-cover"></canvas>
         
@@ -314,23 +312,32 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
                 <p className="text-white/40 text-sm font-medium tracking-widest uppercase">Waiting for camera...</p>
             </div>
         )}
+
+        <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+          <p className="text-xs font-medium text-white/80">You are on camera</p>
+        </div>
       </div>
 
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-lg">
-        <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-4 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl"
-        >
-            <MetricsPanel
-                blinkRate={blinkRate}
-                confidence={confidence}
-                nervousness={nervousness}
-                happy={happy}
-                sad={sad}
-            />
-        </motion.div>
-      </div>
+      <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-6 rounded-[2.5rem] bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl"
+      >
+          <div className="mb-4 flex items-center justify-between">
+            <span className="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em]">Real-time Analysis</span>
+            <div className="flex gap-1">
+              <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
+            </div>
+          </div>
+          <MetricsPanel
+              blinkRate={blinkRate}
+              confidence={confidence}
+              nervousness={nervousness}
+              happy={happy}
+              sad={sad}
+          />
+      </motion.div>
     </div>
   );
 });

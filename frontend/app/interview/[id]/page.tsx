@@ -210,28 +210,25 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
         </header>
 
         {/* Main Content */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
-          {/* Left Column: User Presence */}
-          <div className="lg:col-span-4 flex flex-col gap-6 min-h-0">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-6 min-h-0">
+          {/* Left Column: User Presence (40%) */}
+          <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
             {/* User Camera Preview */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="relative aspect-video lg:aspect-square flex-shrink-0 rounded-[2rem] overflow-hidden border border-white/10 bg-white/5 shadow-2xl group"
+              className="relative flex-1 flex flex-col min-h-0"
             >
               <VideoPreview
                 startFn={setStartAnalyticts}
                 stopFn={setStopAnalyticts}
               />
-              <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                <p className="text-xs font-medium text-white/80">You are on camera</p>
-              </div>
             </motion.div>
 
           </div>
 
-          {/* Right Column: Interaction Hub */}
-          <div className="lg:col-span-8 flex flex-col gap-6 min-h-0">
+          {/* Right Column: Interaction Hub (60%) */}
+          <div className="lg:col-span-3 flex flex-col gap-6 min-h-0">
             {/* Chat History */}
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
