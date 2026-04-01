@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SarvamAIClient } from "sarvamai";
 import JSZip from "jszip";
-import { JSDOM } from "jsdom";
 import axios from "axios";
+
 const client = new SarvamAIClient({
-  apiSubscriptionKey: process.env.NEXT_PUBLIC_SARVAM_API_KEY!, //
+  apiSubscriptionKey: process.env.SARVAM_API_KEY!, 
 });
 
 export async function POST(req: NextRequest) {
@@ -84,9 +84,8 @@ export async function POST(req: NextRequest) {
 
     console.log("HTML extracted");
 
-    // ✅ Step 7: Convert HTML → text
-    const dom = new JSDOM(htmlContent);
-    const cleanText = dom.window.document.body.textContent || "";
+    // ✅ Step 7: Convert HTML → text (Using regex to fix production ESM error with JSDOM)
+    const cleanText = htmlContent.replace(/<[^>]*>?/gm, " ");
 
     console.log(
       "Text length:......................................",
@@ -100,11 +99,11 @@ export async function POST(req: NextRequest) {
     const response = await fetch(API_URI, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_SARVAM_API_KEY}`,
+        Authorization: `Bearer ${process.env.SARVAM_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "sarvam-105b", // 🔥 or check latest models
+        model: "sarvam-105b", 
         messages: [
           {
             role: "system",
