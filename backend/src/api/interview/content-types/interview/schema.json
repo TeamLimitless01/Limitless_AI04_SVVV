@@ -47,7 +47,7 @@
       "type": "integer"
     },
     "resume": {
-      "type": "string"
+      "type": "text"
     },
     "candidateName": {
       "type": "string"

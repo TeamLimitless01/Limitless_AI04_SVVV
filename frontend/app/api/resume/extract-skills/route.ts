@@ -76,7 +76,11 @@ Return ONLY a valid JSON object matching EXACTLY this structure:
 {
   "skills": ["top 5-10 technical/professional skill strings"],
   "summary": "a 2-3 sentence professional summary of the candidate's profile",
-  "improvements": ["improvement 1", "improvement 2", "improvement 3"] 
+  "improvements": ["improvement 1", "improvement 2", "improvement 3"],
+  "jobRole": "the target role derived from resume (e.g. Senior Frontend Engineer)",
+  "suggestedDifficulty": "easy" | "medium" | "hard",
+  "suggestedMode": "Technical" | "HR",
+  "candidateName": "the name of the person if identifiable"
 }
 
 RULES:
@@ -110,7 +114,11 @@ RULES:
       success: true,
       skills: parsedResponse.skills || [],
       summary: parsedResponse.summary || "No summary available.",
-      improvements: parsedResponse.improvements || []
+      improvements: parsedResponse.improvements || [],
+      jobRole: parsedResponse.jobRole || "",
+      suggestedDifficulty: parsedResponse.suggestedDifficulty || "medium",
+      suggestedMode: parsedResponse.suggestedMode || "Technical",
+      candidateName: parsedResponse.candidateName || ""
     });
 
   } catch (error) {
