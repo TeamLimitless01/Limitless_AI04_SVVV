@@ -171,17 +171,17 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
     };
 
     const handleBlur = () => {
-      // Small delay to check if it was just a transient blur
+      // Small delay to check if it was just a transient blur or focus was stolen by a prompt
       setTimeout(() => {
-        if (!document.hasFocus() && !isInterviewCompleted) {
-          setTabSwitchCount((prev) => prev + 1);
-          toast.error("Integrity Violation: Window focus lost. Interview terminated.", {
-            duration: 4000,
+        // If focus was lost but the page is STILL visible, it might be a browser prompt
+        if (!document.hasFocus() && !isInterviewCompleted && document.visibilityState === "visible") {
+          setTabSwitchCount((prev) => prev+1);
+          toast("Warning: Window focus lost. Please stay focused.", {
             icon: '⚠️',
+            style: { border: '1px solid #ca8a04', padding: '10px', color: '#ca8a04', background: '#fefce8' }
           });
-          handleGenerateReport();
         }
-      }, 500); // 0.5s grace period for minor focus blips
+      }, 1000); // 1s grace period for prompts
     };
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
