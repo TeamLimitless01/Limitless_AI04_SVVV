@@ -5,7 +5,7 @@ import AISpeakingBars from "./ai-speaking-bars";
 import MicVisualizer from "./mic-visualizer";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Send, StopCircle, Type, RotateCcw, AlertCircle } from "lucide-react";
+import { Mic, Send, StopCircle, Type, RotateCcw, AlertCircle, Loader2 } from "lucide-react";
 
 interface InterviewControlsProps {
   aiSpeaking: boolean;
@@ -31,7 +31,10 @@ const InterviewControls = React.memo(function InterviewControls({
   handleSend,
 }: InterviewControlsProps) {
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const SILENCE_THRESHOLD = 2000; // 2 seconds of silence to trigger send
   
@@ -39,13 +42,96 @@ const InterviewControls = React.memo(function InterviewControls({
   const aiSpeakingRef = useRef(aiSpeaking);
   const textRef = useRef(text);
   const handleSendRef = useRef(handleSend);
+  const interviewLanguageRef = useRef(interviewLanguage);
 
   useEffect(() => {
     listeningRef.current = listening;
     aiSpeakingRef.current = aiSpeaking;
     textRef.current = text;
     handleSendRef.current = handleSend;
-  }, [listening, aiSpeaking, text, handleSend]);
+    interviewLanguageRef.current = interviewLanguage;
+  }, [listening, aiSpeaking, text, handleSend, interviewLanguage]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.start();
+    } catch (err) {
+      console.error("Error starting MediaRecorder:", err);
+    }
+  };
+
+  const handleFinalizeAndSend = async (fallbackSpeech: string) => {
+    if (isTranscribing) return;
+    
+    setListening(false);
+    setIsTranscribing(true);
+
+    let finalSpeech = fallbackSpeech;
+
+    // Try to get accurate transcription from Sarvam
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        const transcript = await new Promise<string | null>((resolve) => {
+          if (!mediaRecorderRef.current) return resolve(null);
+
+          mediaRecorderRef.current.onstop = async () => {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
+
+            if (audioBlob.size < 500) {
+              console.log("Audio too short, using fallback");
+              return resolve(null);
+            }
+
+            try {
+              const formData = new FormData();
+              formData.append("file", audioBlob);
+              formData.append("language", interviewLanguageRef.current === 'english' ? 'en-IN' : 'hi-IN');
+
+              const response = await fetch("/api/interview/stt", {
+                method: "POST",
+                body: formData,
+              });
+
+              if (!response.ok) throw new Error("STT fetch failed");
+              const data = await response.json();
+              resolve(data.transcript || null);
+            } catch (err) {
+              console.error("Sarvam STT failed, using fallback:", err);
+              resolve(null);
+            }
+          };
+          
+          if (mediaRecorderRef.current.state !== "inactive") {
+            mediaRecorderRef.current.stop();
+          }
+        });
+
+        if (transcript) {
+          finalSpeech = transcript;
+        }
+      } catch (err) {
+        console.error("Recorder error:", err);
+      }
+    }
+
+    if (finalSpeech.trim()) {
+      handleSendRef.current(finalSpeech.trim());
+      setText("");
+    }
+    setIsTranscribing(false);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -61,7 +147,7 @@ const InterviewControls = React.memo(function InterviewControls({
 
     if (!recognitionRef.current) {
       const recognition = new SpeechRecognition();
-      recognition.lang = interviewLanguage == 'english' ? 'en-US' : 'hi-IN';
+      recognition.lang = interviewLanguage == 'english' ? 'en-IN' : 'hi-IN';
       recognition.interimResults = true;
       recognition.continuous = true;
       recognition.onresult = (event: any) => {
@@ -87,11 +173,9 @@ const InterviewControls = React.memo(function InterviewControls({
 
           // Set new timeout for silence detection
           silenceTimeoutRef.current = setTimeout(() => {
-            const finalSpeech = textRef.current.trim();
-            if (finalSpeech && listeningRef.current && !aiSpeakingRef.current) {
-              setListening(false);
-              handleSendRef.current(finalSpeech);
-              setText("");
+            const currentSpeech = textRef.current.trim();
+            if (currentSpeech && listeningRef.current && !aiSpeakingRef.current) {
+              handleFinalizeAndSend(currentSpeech);
             }
           }, SILENCE_THRESHOLD);
         }
@@ -141,11 +225,19 @@ const InterviewControls = React.memo(function InterviewControls({
 
     if (listening) {
       setError(null);
+      startRecording();
       try {
         recognition.start();
       } catch (e) {}
     } else {
       try {
+        // If we're not finalizing (which handles its own stop), stop here.
+        if (!isTranscribing && mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+          mediaRecorderRef.current.onstop = () => {
+             mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
+          };
+          mediaRecorderRef.current.stop();
+        }
         recognition.stop();
         if (silenceTimeoutRef.current) {
           clearTimeout(silenceTimeoutRef.current);
@@ -309,17 +401,17 @@ const InterviewControls = React.memo(function InterviewControls({
                              Reset
                            </button>
                            <button
+                             disabled={isTranscribing}
                              onClick={() => {
                                if (silenceTimeoutRef.current) {
                                  clearTimeout(silenceTimeoutRef.current);
                                }
-                               setListening(false);
-                               handleSend(text.trim());
-                               setText("");
+                               handleFinalizeAndSend(text.trim());
                              }}
-                             className="px-8 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-xl shadow-blue-500/20 transition-all active:scale-95"
+                             className="px-8 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-xl shadow-blue-500/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                            >
-                             Send Response
+                             {isTranscribing && <Loader2 className="w-4 h-4 animate-spin" />}
+                             {isTranscribing ? "Finalizing..." : "Send Response"}
                            </button>
                         </div>
                       </motion.div>
