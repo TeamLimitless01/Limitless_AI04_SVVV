@@ -17,6 +17,7 @@ export async function POST(req: Request) {
       username,
       interviewLanguage = 'english',
       currentQuestionIndex = 1,
+      resume
     } = interviewDetails;
 
     console.log(interviewDetails)
@@ -82,6 +83,7 @@ INTERVIEW CONFIG:
 - Total Interview Time: ${numOfQuestions} minutes
 - Interview Language(Strickly use fonts of): ${interviewLanguage}
 - Interview Mode: ${interviewMode} (HR or Technical)
+- Resume: ${resume}
 
 SAFETY RULES:
 - Max 4 sentences per response

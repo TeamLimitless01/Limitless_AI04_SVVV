@@ -84,6 +84,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     interviewTime: interviewData?.[0]?.interviewTime || 15,
     skills: interviewData?.[0]?.skills || "",
     username: interviewData?.[0]?.candidateName || "",
+    resume: interviewData?.[0]?.resume || "",
     interviewLanguage: interviewData?.[0]?.interviewLanguage || "english",
   }), [interviewData]);
 
