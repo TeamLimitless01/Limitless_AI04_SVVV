@@ -335,7 +335,7 @@ function Page() {
 
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {[
-                                        { val: "1", label: "Demo", sub: "1 Min" },
+                                        { val: "2", label: "Demo", sub: "2 Min" },
 
                     { val: "5", label: "Quick", sub: "5 Min" },
                     { val: "15", label: "Standard", sub: "15 Min" },
