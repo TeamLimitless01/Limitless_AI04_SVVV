@@ -6,7 +6,7 @@ import { existsSync } from "fs";
 import AdmZip from "adm-zip";
 
 const client = new SarvamAIClient({
-  apiSubscriptionKey: process.env.SARVAM_API_KEY || "sk_1nabhvxz_X6kklK1eY0ukPImYdg0lvJsd",
+  apiSubscriptionKey: process.env.NEXT_PUBLIC_SARVAM_API_KEY || "sk_1nabhvxz_X6kklK1eY0ukPImYdg0lvJsd",
 });
 
 export async function POST(request: NextRequest) {
@@ -89,7 +89,7 @@ RULES:
     const apiRes = await fetch("https://api.sarvam.ai/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.SARVAM_API_KEY || "sk_1nabhvxz_X6kklK1eY0ukPImYdg0lvJsd"}`,
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_SARVAM_API_KEY || "sk_1nabhvxz_X6kklK1eY0ukPImYdg0lvJsd"}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

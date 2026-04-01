@@ -7,7 +7,7 @@ import { join } from "path";
 import { readFile, unlink } from "fs/promises";
 import axios from "axios";
 const client = new SarvamAIClient({
-  apiSubscriptionKey: process.env.SARVAM_API_KEY!, //
+  apiSubscriptionKey: process.env.NEXT_PUBLIC_SARVAM_API_KEY!, //
 });
 
 export async function POST(req: NextRequest) {
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     const response = await fetch(API_URI, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.SARVAM_API_KEY}`,
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_SARVAM_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
