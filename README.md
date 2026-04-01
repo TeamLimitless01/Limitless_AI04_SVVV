@@ -148,11 +148,7 @@ graph TD
 ## 🤝 Contributing
 Neuraview is part of the **Aurobindo AI Hackathon**. We welcome contributions that enhance the AI's empathy, accuracy, and technical depth.
 
----
-
-## ⚖️ License
-Distributed under the MIT License. See `LICENSE` for more information.
-
+ 
 ---
 
 Created with ❤️ by **Team Limitless** (LimitlessAI04).
