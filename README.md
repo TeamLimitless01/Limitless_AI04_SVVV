@@ -5,7 +5,7 @@
 ---
 
 ## 🚀 Vision
-Empowering developers and professionals to "mirror" their excellence through AI-driven insights, behavioral coaching, and personalized learning roadmaps.
+Empowering students to "mirror" their excellence through AI-driven insights, behavioral coaching, and personalized learning roadmaps.
 
 ---
 
