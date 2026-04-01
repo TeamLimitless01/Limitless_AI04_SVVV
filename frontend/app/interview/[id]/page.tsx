@@ -154,6 +154,69 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
     return () => clearInterval(timer);
   }, [showStartModal, isInterviewCompleted, timeLeft]);
 
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
+
+  useEffect(() => {
+    if (showStartModal || isInterviewCompleted) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && !isInterviewCompleted) {
+        setTabSwitchCount((prev) => prev + 1);
+        toast.error("Cheat detected! Tab switching is forbidden. Interview terminated.", {
+          duration: 5000,
+          icon: '🚫',
+        });
+        handleGenerateReport();
+      }
+    };
+
+    const handleBlur = () => {
+      // Small delay to check if it was just a transient blur or focus was stolen by a prompt
+      setTimeout(() => {
+        // If focus was lost but the page is STILL visible, it might be a browser prompt
+        if (!document.hasFocus() && !isInterviewCompleted && document.visibilityState === "visible") {
+          setTabSwitchCount((prev) => prev+1);
+          toast("Warning: Window focus lost. Please stay focused.", {
+            icon: '⚠️',
+            style: { border: '1px solid #ca8a04', padding: '10px', color: '#ca8a04', background: '#fefce8' }
+          });
+        }
+      }, 1000); // 1s grace period for prompts
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [showStartModal, isInterviewCompleted]);
+
+  useEffect(() => {
+    if (timeLeft === 0 && !showStartModal && !hasAutoSubmitted && !isGeneratingReport) {
+      setHasAutoSubmitted(true);
+      stop();
+      setMessages((prev: Message[]) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "The interview time is up. Wrap up and report generation initiated."
+        }
+      ]);
+      toast("Time is up! Wrapping up...", { icon: '⏳' });
+      handleGenerateReport();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, showStartModal, hasAutoSubmitted, isGeneratingReport, stop]);
+
   const handleGenerateReport = async () => {
     if (isGeneratingReport) return;
     setIsGeneratingReport(true);
@@ -173,6 +236,7 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
           messages,
           interviewDetails,
           faceMeshFeedback: feed,
+          tabSwitchCount: tabSwitchCount, // Passing the violations count
         }),
       });
       if (!res.ok) throw new Error("Failed to generate report");
@@ -192,23 +256,6 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
       setIsGeneratingReport(false);
     }
   };
-
-  useEffect(() => {
-    if (timeLeft === 0 && !showStartModal && !hasAutoSubmitted && !isGeneratingReport) {
-      setHasAutoSubmitted(true);
-      stop();
-      setMessages((prev: Message[]) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "The interview time is up. Wrap up and report generation initiated."
-        }
-      ]);
-      toast("Time is up! Wrapping up...", { icon: '⏳' });
-      handleGenerateReport();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, showStartModal, hasAutoSubmitted, isGeneratingReport, stop]);
 
 
   if (isLoading) {

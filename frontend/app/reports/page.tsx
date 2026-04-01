@@ -22,33 +22,50 @@ import toast from "react-hot-toast";
 function ReportsContent() {
   const { data: user } = useSession<any>();
   const router = useRouter();
-  const { data, error, isLoading } = useStrapi("interviews", {
+  const { data, error, isLoading, mutate } = useStrapi("interviews", {
     filters: { user: user?.user?.id },
-    sort: ["createdAt:desc"],
+    sort: ["updatedAt:desc"],
+    pagination: { limit: 100 }
   });
 
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [isGeneratingNotes, setIsGeneratingNotes] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const interviewId = searchParams.get("interviewId");
-  const hasAutoOpened = useRef(false);
+  const lastProcessedId = useRef<string | null>(null);
+
+  // Force revalidation whenever we land here with an interviewId (e.g. after a redirect)
+  useEffect(() => {
+    if (interviewId) {
+      mutate();
+    }
+  }, [interviewId, mutate]);
 
   useEffect(() => {
-    if (interviewId && data?.data?.length > 0 && !hasAutoOpened.current) {
+    if (interviewId && data?.data?.length > 0) {
       const interview = data.data.find(
         (i: any) => i.documentId === interviewId || i.id?.toString() === interviewId
       );
+      
       if (interview && interview.report) {
         try {
           const parsed = typeof interview.report === "string" ? JSON.parse(interview.report) : interview.report;
-          setSelectedReport(parsed);
-          hasAutoOpened.current = true;
+          
+          // Auto-open if not already opened this ID on this page mount
+          if (lastProcessedId.current !== interviewId) {
+            setSelectedReport(parsed);
+            lastProcessedId.current = interviewId;
+          } 
+          // If already opened this ID, but fresh data just arrived that differs from what we show, update it
+          else if (selectedReport && JSON.stringify(selectedReport) !== JSON.stringify(parsed)) {
+            setSelectedReport(parsed);
+          }
         } catch (e) {
           console.error("Invalid report format", e);
         }
       }
     }
-  }, [interviewId, data]);
+  }, [interviewId, data, selectedReport]);
 
   const handleGenerateNotes = async (interview: any) => {
     setIsGeneratingNotes(interview.id || interview.documentId);
