@@ -16,7 +16,6 @@ export async function POST(req: Request) {
       numOfQuestions,
       username,
       interviewLanguage = 'english',
-      currentQuestionIndex = 1,
       resume
     } = interviewDetails;
 
@@ -97,6 +96,7 @@ INTERVIEW SCRIPT:
 - Ask one question at a time related to the target role and skills.
 - Wait for the candidate's response before proceeding.
 - Do not add extra commentary.
+- Remeber to stricktly use fonts of ${interviewLanguage} language
 `;
 
     const API_URI = "https://api.sarvam.ai/v1/chat/completions";
