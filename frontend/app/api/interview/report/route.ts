@@ -1,12 +1,17 @@
 export async function POST(req: Request) {
   try {
-    const { messages, interviewDetails, faceMeshFeedback } = await req.json();
+    const { messages, interviewDetails, faceMeshFeedback, tabSwitchCount } = await req.json();
 
     const model = "mistral";
     const systemPrompt = `
 You are an expert AI recruiter and evaluation system.
 
 Your task: Generate a **structured interview report strictly in RAW JSON format**.
+
+### 🚥 INTEGRITY & ANTI-CHEAT:
+- You will receive a 'tabSwitchCount' which indicates how many times the candidate switched tabs or lost focus during the interview. 
+- If 'tabSwitchCount' is > 0, mention it in the 'facialAnalytics.notes' or 'overallPerformance.justification' as a lack of focus or potential integrity issue.
+- Penalize the 'engagement' and 'confidenceLevel' scores if tab switching is frequent.
 
 ### ⚠️ ABSOLUTE RULES:
 - Output must be **raw JSON only** — no Markdown, no \`\`\`json, no text before or after.
@@ -95,6 +100,7 @@ Return **only** the JSON in the exact structure above.
               interviewDetails,
               messages,
               facialAnalytics: faceMeshFeedback,
+              integrityViolations: tabSwitchCount || 0,
             }),
           },
         ],
