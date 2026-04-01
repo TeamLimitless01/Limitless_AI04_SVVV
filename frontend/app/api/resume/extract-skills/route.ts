@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SarvamAIClient } from "sarvamai";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import { join } from "path";
-import { existsSync } from "fs";
 import AdmZip from "adm-zip";
 
 const client = new SarvamAIClient({
@@ -10,9 +7,6 @@ const client = new SarvamAIClient({
 });
 
 export async function POST(request: NextRequest) {
-  let filePath = "";
-  let outputPath = "";
-
   try {
     const formData = await request.formData();
     const file = formData.get("pdf") as File;
@@ -21,16 +15,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid or no PDF file provided" }, { status: 400 });
     }
 
-    const uploadsDir = join(process.cwd(), "uploads");
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true });
-    }
-
     const bytes = await file.arrayBuffer();
-    filePath = join(uploadsDir, `resume_${Date.now()}.pdf`);
-    await writeFile(filePath, Buffer.from(bytes));
+    const buffer = Buffer.from(bytes);
 
-    console.log(`Sending resume to Sarvam Document Parse: ${filePath}`);
+    console.log(`Sending resume to Sarvam Document Parse: ${file.name}`);
 
     // Create a document intelligence job using Sarvam AI like summarize-quiz
     const job = await client.documentIntelligence.createJob({
@@ -38,7 +26,8 @@ export async function POST(request: NextRequest) {
       outputFormat: "html",
     });
 
-    await job.uploadFile(filePath);
+    //@ts-ignore
+    await job.uploadFile(buffer, file.name);
     await job.start();
 
     const status = await job.waitUntilComplete();
@@ -46,11 +35,30 @@ export async function POST(request: NextRequest) {
       throw new Error(`Job failed with state: ${status.job_state}`);
     }
 
-    outputPath = join(uploadsDir, `resume_out_${job.jobId}.zip`);
-    await job.downloadOutput(outputPath);
+    // ✅ Download output to memory
+    const downloadResponse = await job.getDownloadLinks();
+    const downloadUrls = downloadResponse.download_urls;
 
-    // Extract the text using Adm-Zip
-    const zip = new AdmZip(outputPath);
+    if (!downloadUrls || Object.keys(downloadUrls).length === 0) {
+      throw new Error("No download URLs available from Sarvam AI");
+    }
+
+    const downloadInfo = Object.values(downloadUrls)[0] as any;
+    const fileUrl = downloadInfo?.file_url;
+
+    if (!fileUrl) {
+      throw new Error("Invalid download URL");
+    }
+
+    const zipResponse = await fetch(fileUrl);
+    if (!zipResponse.ok) {
+      throw new Error(`Failed to download ZIP: ${zipResponse.statusText}`);
+    }
+
+    const zipBuffer = Buffer.from(await zipResponse.arrayBuffer());
+
+    // Extract the text using Adm-Zip from buffer
+    const zip = new AdmZip(zipBuffer);
     const zipEntries = zip.getEntries();
     let resumeText = "";
 
@@ -127,13 +135,5 @@ RULES:
       { error: "Failed to extract skills", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
     );
-  } finally {
-    // Cleanup generated files
-    try {
-      if (filePath && existsSync(filePath)) await unlink(filePath);
-      if (outputPath && existsSync(outputPath)) await unlink(outputPath);
-    } catch (e) {
-      console.error("Cleanup failed:", e);
-    }
   }
 }

@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { SarvamAIClient } from "sarvamai";
 import JSZip from "jszip";
 import { JSDOM } from "jsdom";
-import { tmpdir } from "os";
-import { join } from "path";
-import { readFile, unlink } from "fs/promises";
 import axios from "axios";
 const client = new SarvamAIClient({
   apiSubscriptionKey: process.env.SARVAM_API_KEY!, //
@@ -43,17 +40,29 @@ export async function POST(req: NextRequest) {
     const status = await job.waitUntilComplete();
     console.log("Job status:", status.job_state);
 
-    // ✅ Step 5: Download ZIP to temp file (FIXED 🔥)
-    const tempPath = join(tmpdir(), `output-${Date.now()}.zip`);
+    // ✅ Step 5: Download ZIP directly to memory
+    const downloadResponse = await job.getDownloadLinks();
+    const downloadUrls = downloadResponse.download_urls;
 
-    await job.downloadOutput(tempPath);
+    if (!downloadUrls || Object.keys(downloadUrls).length === 0) {
+      throw new Error("No download URLs available from Sarvam AI");
+    }
 
-    const zipBuffer = await readFile(tempPath);
+    const downloadInfo = Object.values(downloadUrls)[0] as any;
+    const fileUrl = downloadInfo?.file_url;
 
-    console.log("ZIP downloaded:", zipBuffer.byteLength);
+    if (!fileUrl) {
+      throw new Error("Invalid download URL");
+    }
 
-    // 🧹 Cleanup temp file
-    await unlink(tempPath);
+    const zipResponse = await fetch(fileUrl);
+    if (!zipResponse.ok) {
+      throw new Error(`Failed to download ZIP: ${zipResponse.statusText}`);
+    }
+
+    const zipBuffer = Buffer.from(await zipResponse.arrayBuffer());
+
+    console.log("ZIP downloaded to memory:", zipBuffer.byteLength);
 
     // ✅ Step 6: Extract HTML from ZIP
     const zip = await JSZip.loadAsync(zipBuffer);
