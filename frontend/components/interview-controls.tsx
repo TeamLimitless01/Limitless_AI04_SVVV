@@ -37,7 +37,7 @@ const InterviewControls = React.memo(function InterviewControls({
   
   const listeningRef = useRef(listening);
   const aiSpeakingRef = useRef(aiSpeaking);
-  const textRef = useRef(text);
+  const textRef = useRef(text); 
   const handleSendRef = useRef(handleSend);
 
   useEffect(() => {
