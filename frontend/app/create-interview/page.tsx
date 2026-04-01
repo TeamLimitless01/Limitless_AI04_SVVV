@@ -177,7 +177,7 @@ function Page() {
                 </p>
                 <div className="flex flex-wrap gap-4">
                   {[
-                    { icon: ShieldCheck, text: "FAANG Aligned" },
+                    // { icon: ShieldCheck, text: "FAANG Aligned" },
                     { icon: Globe, text: "Multilingual Support" },
                     { icon: Zap, text: "Instant Analysis" }
                   ].map((inf, i) => (
