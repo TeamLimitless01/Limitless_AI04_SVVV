@@ -461,7 +461,7 @@ export interface ApiInterviewInterview extends Struct.CollectionTypeSchema {
       Schema.Attribute.DefaultTo<'Technical'>;
     publishedAt: Schema.Attribute.DateTime;
     report: Schema.Attribute.JSON;
-    resume: Schema.Attribute.String;
+    resume: Schema.Attribute.Text;
     skills: Schema.Attribute.String;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
