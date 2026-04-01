@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import VideoPreview from "@/components/video-preview";
 import InterviewChatPane from "@/components/interview-chat-pane";
 import InterviewControls from "@/components/interview-controls";
@@ -12,14 +12,20 @@ import { useSarvamStreamingTTS } from "./useSarvamStreamingTTS";
 import toast from "react-hot-toast";
 import { strapi } from "@/lib/api/sdk";
 import { useRouter } from "next/navigation";
-import { Loader2, Mic, Settings, X, ChevronRight } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Loader2, ChevronRight } from "lucide-react";
 import Orb from "@/components/Orb";
 import LightRays from "@/components/LightRay";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
+import StartInterviewModal from "./components/StartInterviewModal";
+import InterviewHeader from "./components/InterviewHeader";
 
 type Message = { role: "assistant" | "user"; content: string };
+
+const formatTime = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+};
 
 export default function InterviewPage({ params }: { params: { id: string } }) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -29,13 +35,15 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [listening, setListening] = useState(false);
   const [text, setText] = useState("");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [startAnalyticts, setStartAnalyticts] = useState<any>(null);
-  const [stopAnalyticts, setStopAnalyticts] = useState<any>(null);
+  
+  // Refs for callbacks to avoid re-renders
+  const startAnalyticsRef = useRef<(() => void) | null>(null);
+  const stopAnalyticsRef = useRef<(() => string) | null>(null);
+  
   const [speechEnabled, setSpeechEnabled] = useState(true);
   const [delayedAiSpeaking, setDelayedAiSpeaking] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [hasAutoSubmitted, setHasAutoSubmitted] = useState(false);
-
   const [showStartModal, setShowStartModal] = useState(true);
 
   const router = useRouter();
@@ -111,8 +119,8 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
     initialGreetings();
     setShowStartModal(false);
 
-    if (startAnalyticts) startAnalyticts();
-  }, [unlockPlayback, initialGreetings, startAnalyticts]);
+    if (startAnalyticsRef.current) startAnalyticsRef.current();
+  }, [unlockPlayback, initialGreetings]);
 
   const isActuallySpeaking = isSpeechLoading || isPlaying || aiSpeaking;
 
@@ -151,8 +159,8 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
     setIsInterviewCompleted(true);
     try {
       let feed = "";
-      if (stopAnalyticts) {
-        feed = stopAnalyticts();
+      if (stopAnalyticsRef.current) {
+        feed = stopAnalyticsRef.current();
       }
       await strapi.update("interviews", params.id, {
         conversation: messages,
@@ -175,7 +183,7 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
         });
       }
       toast.success("Report generated!");
-      router.push("/reports");
+      router.push(`/reports?interviewId=${params.id}`);
     } catch (err) {
       console.error(err);
       toast.error("Could not generate report");
@@ -198,13 +206,9 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
       toast("Time is up! Wrapping up...", { icon: '⏳' });
       handleGenerateReport();
     }
-  }, [timeLeft, showStartModal, hasAutoSubmitted, isGeneratingReport, stop, setMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, showStartModal, hasAutoSubmitted, isGeneratingReport, stop]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
 
   if (isLoading) {
     return (
@@ -219,78 +223,31 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
 
   return (
     <main className="relative min-h-screen bg-[#050505] text-white overflow-hidden font-sans">
-      {/* Dynamic Background */}
-      <div className="absolute inset-0 z-0">
-        <LightRays
-          raysColor="#4a90e2"
-          raysSpeed={0.5}
-          lightSpread={0.8}
-          rayLength={1.5}
-          className="opacity-20"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/50 to-[#050505]" />
-      </div>
+      {/* Dynamic Background - Hidden during active interview for performance */}
+      {showStartModal && (
+        <div className="absolute inset-0 z-0">
+          <LightRays
+            raysColor="#4a90e2"
+            raysSpeed={0.5}
+            lightSpread={0.8}
+            rayLength={1.5}
+            className="opacity-20"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/50 to-[#050505]" />
+        </div>
+      )}
 
-      <AnimatePresence>
-        {showStartModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[100] flex flex-col items-center justify-center backdrop-blur-3xl bg-black/60 p-6 text-center"
-          >
-            <div className="w-full max-w-md p-8 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl">
-              <div className="mb-6 w-20 h-20 mx-auto">
-                <Orb hue={260} hoverIntensity={1} forceHoverState />
-              </div>
-              <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 mb-2">
-                Ready for your interview?
-              </h1>
-              <p className="text-white/60 mb-8">
-                Make sure your camera and microphone are working properly before we begin.
-              </p>
-              <Button
-                onClick={startInterview}
-                className="w-full py-6 text-lg font-semibold rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-xl shadow-blue-500/20 transition-all active:scale-95"
-              >
-                Launch Interview
-              </Button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <StartInterviewModal
+        show={showStartModal}
+        onStart={startInterview}
+      />
 
       <div className="relative z-10 flex flex-col h-screen max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8">
-        {/* Header */}
-        <header className="flex items-center justify-between mb-6 w-full relative z-50">
-          <div className="flex-1 flex justify-start">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                <Mic className="text-white w-5 h-5" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight">Interview Session</h1>
-                <div className="text-[10px] text-white/40 uppercase tracking-widest font-medium">Session ID: {params.id.slice(0, 8)}...</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 flex justify-end gap-4">
-            <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
-              <Label htmlFor="speech-mode" className="text-[10px] font-bold uppercase tracking-widest text-white/40 group-hover:text-white/60 transition-colors cursor-pointer">
-                AI Voice
-              </Label>
-              <Switch
-                id="speech-mode"
-                checked={speechEnabled}
-                onCheckedChange={setSpeechEnabled}
-              />
-            </div>
-            <button className="p-2 rounded-lg hover:bg-white/5 transition-colors" onClick={() => router.push('/dashboard')}>
-              <X className="w-5 h-5 text-white/60" />
-            </button>
-          </div>
-        </header>
+        <InterviewHeader
+          id={params.id}
+          speechEnabled={speechEnabled}
+          setSpeechEnabled={setSpeechEnabled}
+        />
 
         {/* Main Content */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-6 min-h-0">
@@ -303,8 +260,8 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
               className="relative flex-1 flex flex-col min-h-0"
             >
               <VideoPreview
-                startFn={setStartAnalyticts}
-                stopFn={setStopAnalyticts}
+                startFn={(fn: any) => { startAnalyticsRef.current = fn(); }}
+                stopFn={(fn: any) => { stopAnalyticsRef.current = fn(); }}
               />
             </motion.div>
 

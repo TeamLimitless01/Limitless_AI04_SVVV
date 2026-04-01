@@ -23,12 +23,14 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
   const [running, setRunning] = useState(false);
   const [loaded, setLoaded] = useState(true);
 
-  const [blinkRate, setBlinkRate] = useState(0);
-  const [nervousness, setNervousness] = useState(0);
-  const [confidence, setConfidence] = useState(0);
-  const [surprised, setSurprised] = useState(0);
-  const [happy, setHappy] = useState(0);
-  const [sad, setSad] = useState(0);
+  const [metrics, setMetrics] = useState({
+    blinkRate: 0,
+    confidence: 0,
+    nervousness: 0,
+    happy: 0,
+    sad: 0,
+    surprised: 0,
+  });
 
   const blinkTimestampsRef = useRef<number[]>([]);
   const earHistoryRef = useRef<number[]>([]);
@@ -45,6 +47,8 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
   });
 
   const sessionDataRef = useRef<EmotionData[]>([]);
+  const lastUpdateRef = useRef<number>(0);
+  const frameCountRef = useRef<number>(0);
 
   const euclid = (a: any, b: any) => Math.hypot(a.x - b.x, a.y - b.y);
   const smooth = (prev: number, current: number, alpha = 0.3) =>
@@ -103,7 +107,14 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
       const targetConf = Math.max(0, currentConf - 0.1) + fluctuation;
       const finalConf = localClamp(targetConf);
       
-      setConfidence(Number(finalConf.toFixed(2)));
+      const now = Date.now();
+      if (now - lastUpdateRef.current > 200) {
+        setMetrics(prev => ({
+          ...prev,
+          confidence: Number(finalConf.toFixed(2))
+        }));
+        lastUpdateRef.current = now;
+      }
       lastEmotionRef.current.confidence = finalConf;
       return;
     }
@@ -131,9 +142,6 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
 
     // @ts-ignore
     if (typeof drawConnectors !== 'undefined') {
-      ctx.shadowBlur = 4;
-      ctx.shadowColor = "#3b82f6";
-      
       // @ts-ignore
       drawConnectors(ctx, lm, FACEMESH_TESSELATION, {
         color: "rgba(255, 255, 255, 0.1)",
@@ -147,8 +155,6 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
       drawConnectors(ctx, lm, FACEMESH_LIPS, { color: "rgba(255, 255, 255, 0.3)", lineWidth: 1.5 });
       // @ts-ignore
       drawConnectors(ctx, lm, FACEMESH_FACE_OVAL, { color: "rgba(59, 130, 246, 0.4)", lineWidth: 1 });
-      
-      ctx.shadowBlur = 0;
     }
     ctx.restore();
 
@@ -163,7 +169,6 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
     const oneMinuteAgo = Date.now() - 60000;
     blinkTimestampsRef.current = blinkTimestampsRef.current.filter((t) => t > oneMinuteAgo);
     const br = blinkTimestampsRef.current.length;
-    setBlinkRate(br);
 
     const mar = mouthAspectRatio(lm);
     const smile = smileScore(lm);
@@ -187,20 +192,25 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
     
     const rawConf = localClamp((positivity - negativity + 1) / 2 + jitter);
     const finalConf = smooth(lastEmotionRef.current.confidence, rawConf, 0.15);
-    setConfidence(Number(finalConf.toFixed(2)));
-
     const happyRaw = smooth(lastEmotionRef.current.happy, smile, 0.2);
-    setHappy(Number(happyRaw.toFixed(2)));
-
     const nervousRaw = smooth(lastEmotionRef.current.nervous, (0.4 * gazeAversion + 0.4 * (1 - stabilityFeature) + 0.2 * blinkFeature), 0.1);
-    setNervousness(Number(nervousRaw.toFixed(2)));
-
     const sadRaw = smooth(lastEmotionRef.current.sad, Math.max(0, 1 - happyRaw - (1 - nervousRaw) * 0.5), 0.1);
-    setSad(Number(sadRaw.toFixed(2)));
-
+    
     const rawSurprise = Math.min(1, 0.7 * eyeWideFeature + 0.3 * (mar > 0.4 ? 1 : 0));
     const finalSurprise = smooth(lastEmotionRef.current.surprised, rawSurprise, 0.2);
-    setSurprised(Number(finalSurprise.toFixed(2)));
+
+    const now = Date.now();
+    if (now - lastUpdateRef.current > 200) {
+      setMetrics({
+        blinkRate: br,
+        confidence: Number(finalConf.toFixed(2)),
+        happy: Number(happyRaw.toFixed(2)),
+        nervousness: Number(nervousRaw.toFixed(2)),
+        sad: Number(sadRaw.toFixed(2)),
+        surprised: Number(finalSurprise.toFixed(2)),
+      });
+      lastUpdateRef.current = now;
+    }
 
     lastEmotionRef.current = {
       happy: happyRaw,
@@ -282,7 +292,12 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
 
     if (!cameraRef.current) {
       cameraRef.current = new (window as any).Camera(video, {
-        onFrame: async () => await faceMeshRef.current.send({ image: video }),
+        onFrame: async () => {
+           frameCountRef.current++;
+           if (frameCountRef.current % 2 === 0) {
+               await faceMeshRef.current.send({ image: video });
+           }
+        },
         width: 1280,
         height: 720,
       });
@@ -331,11 +346,11 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
             </div>
           </div>
           <MetricsPanel
-              blinkRate={blinkRate}
-              confidence={confidence}
-              nervousness={nervousness}
-              happy={happy}
-              sad={sad}
+              blinkRate={metrics.blinkRate}
+              confidence={metrics.confidence}
+              nervousness={metrics.nervousness}
+              happy={metrics.happy}
+              sad={metrics.sad}
           />
       </motion.div>
     </div>

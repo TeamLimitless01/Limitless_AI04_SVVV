@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useStrapi } from "@/lib/api/useStrapi";
@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileText, RotateCcw, ChevronRight, Calendar, Target, Layers, Sparkles, X, DownloadCloud, Loader2 } from "lucide-react";
@@ -19,7 +19,7 @@ import InterviewReport from "./ReportUi";
 import { jsPDF } from "jspdf";
 import toast from "react-hot-toast";
 
-export default function ReportsPage() {
+function ReportsContent() {
   const { data: user } = useSession<any>();
   const router = useRouter();
   const { data, error, isLoading } = useStrapi("interviews", {
@@ -29,6 +29,26 @@ export default function ReportsPage() {
 
   const [selectedReport, setSelectedReport] = useState<any | null>(null);
   const [isGeneratingNotes, setIsGeneratingNotes] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const interviewId = searchParams.get("interviewId");
+  const hasAutoOpened = useRef(false);
+
+  useEffect(() => {
+    if (interviewId && data?.data?.length > 0 && !hasAutoOpened.current) {
+      const interview = data.data.find(
+        (i: any) => i.documentId === interviewId || i.id?.toString() === interviewId
+      );
+      if (interview && interview.report) {
+        try {
+          const parsed = typeof interview.report === "string" ? JSON.parse(interview.report) : interview.report;
+          setSelectedReport(parsed);
+          hasAutoOpened.current = true;
+        } catch (e) {
+          console.error("Invalid report format", e);
+        }
+      }
+    }
+  }, [interviewId, data]);
 
   const handleGenerateNotes = async (interview: any) => {
     setIsGeneratingNotes(interview.id || interview.documentId);
@@ -365,5 +385,18 @@ export default function ReportsPage() {
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+export default function ReportsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col justify-center items-center h-screen bg-[#020617]">
+        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
+        <p className="text-slate-400 font-medium animate-pulse">Initializing Reports...</p>
+      </div>
+    }>
+      <ReportsContent />
+    </Suspense>
   );
 }
