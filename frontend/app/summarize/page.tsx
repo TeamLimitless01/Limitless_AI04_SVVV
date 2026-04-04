@@ -150,8 +150,7 @@ export default function SummarizeQuizPage() {
           AI-Powered Summarize & Quiz
         </h1>
         <p className="text-gray-300 text-lg">
-          Upload your PDF notes, get AI-powered summaries, and generate
-          interactive quizzes
+          Upload your PDF notes, get AI-powered summaries
         </p>
       </div>
 
@@ -164,7 +163,7 @@ export default function SummarizeQuizPage() {
               Upload PDF Notes
             </CardTitle>
             <CardDescription className="text-gray-400">
-              Select a PDF file containing your study notes to get started
+              Select a PDF file containing your study notes or any data to get started
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
