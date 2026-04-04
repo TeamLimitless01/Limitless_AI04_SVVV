@@ -21,7 +21,7 @@ const InterviewChatPane = React.memo(function InterviewChatPane({
   // Determine which messages to render
   const displayedMessages = React.useMemo(() => {
     if (!messages || messages.length === 0) return [];
-    return messages.slice(1); // skip first dummy if you have it
+    return messages;
   }, [messages]);
 
   return (

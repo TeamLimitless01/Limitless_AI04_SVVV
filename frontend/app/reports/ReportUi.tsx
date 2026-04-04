@@ -128,7 +128,7 @@ export default function InterviewReport({ report }: { report?: any }) {
               </div>
               <span className="text-xs font-black uppercase tracking-widest text-slate-500">Session</span>
             </div>
-            <h3 className="text-xl font-bold text-white mb-1">{candidateInfo.numOfQuestions || 0} Questions</h3>
+            <h3 className="text-xl font-bold text-white mb-1">{candidateInfo.interviewTime || 15} Minutes</h3>
             <p className="text-sm text-slate-400 font-medium capitalize">{candidateInfo.difficulty || 'Normal'} Difficulty</p>
           </motion.div>
         </div>

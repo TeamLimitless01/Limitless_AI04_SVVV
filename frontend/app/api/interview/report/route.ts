@@ -29,7 +29,7 @@ Your task: Generate a **structured interview report strictly in RAW JSON format*
     "jobRole": string,
     "difficulty": string,
     "mode": string,
-    "numOfQuestions": number,
+    "interviewTime": number, // duration in minutes
     "skillsAssessed": string
   },
   "answerAnalysis": {

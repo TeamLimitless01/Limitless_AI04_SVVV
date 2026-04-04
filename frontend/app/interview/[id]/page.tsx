@@ -7,15 +7,14 @@ import InterviewControls from "@/components/interview-controls";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useStrapi } from "@/lib/api/useStrapi";
-import { useChat } from "./useChat";
-import { useSarvamStreamingTTS } from "./useSarvamStreamingTTS";
+import { useGeminiLive } from "./useGeminiLive";
 import toast from "react-hot-toast";
 import { strapi } from "@/lib/api/sdk";
 import { useRouter } from "next/navigation";
-import { Loader2, ChevronRight } from "lucide-react";
+import { Loader2, ChevronRight, Mic, MicOff } from "lucide-react";
 import Orb from "@/components/Orb";
 import LightRays from "@/components/LightRay";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import StartInterviewModal from "./components/StartInterviewModal";
 import InterviewHeader from "./components/InterviewHeader";
 
@@ -35,6 +34,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [listening, setListening] = useState(false);
   const [text, setText] = useState("");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [volume, setVolume] = useState(0);
   
   // Refs for callbacks to avoid re-renders
   const startAnalyticsRef = useRef<(() => void) | null>(null);
@@ -47,28 +47,6 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [showStartModal, setShowStartModal] = useState(true);
 
   const router = useRouter();
-
-  const {
-    queueText,
-    flush,
-    stop,
-    unlockPlayback,
-    isPlaying,
-    isLoading: isSpeechLoading,
-    error: speechError,
-  } = useSarvamStreamingTTS({ languageCode: "en-IN" });
-
-  const { sendMessage, isLoading: isChatLoading } = useChat({
-    messages,
-    setMessages,
-    setAiSpeaking,
-    setIsInterviewCompleted,
-    queueText,
-    flush,
-    stop,
-    speechEnabled,
-  });
-
 
   const { data, isLoading } = useStrapi("interviews", {
     populate: "*",
@@ -88,42 +66,82 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     interviewLanguage: interviewData?.[0]?.interviewLanguage || "english",
   }), [interviewData]);
 
-  const resumeUrl = useMemo(() => interviewData?.[0]?.resume || "", [interviewData]);
+  const onMessage = useCallback((newText: string) => {
+    userTranscriptMsgId.current = null; // Reset user transcript ID as AI has started speaking
+    setMessages((prev: any) => {
+      const lastMessage = prev[prev.length - 1];
+      if (lastMessage?.role === "assistant") {
+        return [...prev.slice(0, -1), { ...lastMessage, content: lastMessage.content + newText }];
+      } else {
+        return [...prev, { role: "assistant", content: newText, id: crypto.randomUUID() }];
+      }
+    });
+  }, []);
 
-  const handleSend = useCallback(async (c: string) => {
-    await sendMessage({ content: c, interviewDetails });
-    setText("");
-  }, [sendMessage, interviewDetails, setText]);
+  const onInterrupt = useCallback(() => {
+    console.log("[InterviewPage] AI Interrupted by User");
+  }, []);
 
-  const initialGreetings = useCallback(async () => {
-    try {
-      // const content = [
-      //   ...(resumeUrl
-      //     ? [{ type: "image_url", image_url: { url: resumeUrl } }]
-      //     : []),
-      //   {
-      //     type: "text",
-      //     text: interviewDetails.username
-      //       ? "Hello I am " + interviewDetails.username
-      //       : "",
-      //   },
-      // ];
-const content = `Hello I am ${interviewDetails.username} and I am here to interview you for the position of ${interviewDetails.topic}`
-      await sendMessage({ content, interviewDetails });
-    } catch (error) {
-      console.log("Initial greeting failed", error);
+  const userTranscriptMsgId = useRef<string | null>(null);
+
+  const onUserTranscription = useCallback((transcription: any) => {
+    console.log("[InterviewPage] User Transcription Recv:", transcription);
+    if (mode === "voice" && transcription.text) {
+      setText(transcription.text);
+
+      setMessages((prev: any) => {
+        // If we don't have an ID yet, or the last message is NOT a user message from this transcription
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage?.role === "user" && lastMessage.id === userTranscriptMsgId.current) {
+          // Update the existing message
+          const newMsg = { ...lastMessage, content: transcription.text };
+          return [...prev.slice(0, -1), newMsg];
+        } else {
+          // New message
+          const newId = crypto.randomUUID();
+          userTranscriptMsgId.current = newId;
+          const newMsg = {
+            role: "user",
+            content: transcription.text,
+            id: newId
+          };
+          return [...prev, newMsg];
+        }
+      });
     }
-  }, [resumeUrl, interviewDetails, sendMessage]);
+  }, [mode]);
 
-  const startInterview = useCallback(() => {
-    unlockPlayback();
-    initialGreetings();
-    setShowStartModal(false);
+  const {
+    isActive,
+    isConnecting,
+    error: liveError,
+    startSession,
+    stopSession,
+    session
+  } = useGeminiLive({
+    interviewDetails,
+    onMessage,
+    onInterrupt,
+    onUserTranscription,
+    setVolume,
+    setAiSpeaking,
+    setIsInterviewCompleted,
+    isMuted: !listening
+  });
 
-    if (startAnalyticsRef.current) startAnalyticsRef.current();
-  }, [unlockPlayback, initialGreetings]);
+  const isActuallySpeaking = aiSpeaking;
 
-  const isActuallySpeaking = isSpeechLoading || isPlaying || aiSpeaking;
+  useEffect(() => {
+    if (isActive) {
+      setListening(true);
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    if (aiSpeaking) {
+      userTranscriptMsgId.current = null;
+    }
+  }, [aiSpeaking]);
 
   useEffect(() => {
     if (isActuallySpeaking) {
@@ -153,6 +171,27 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
 
     return () => clearInterval(timer);
   }, [showStartModal, isInterviewCompleted, timeLeft]);
+
+  const startInterview = useCallback(() => {
+    console.log("[InterviewPage] Attempting to start interview...");
+    setListening(true);
+    startSession();
+    setShowStartModal(false);
+
+    if (startAnalyticsRef.current) startAnalyticsRef.current();
+  }, [startSession, setListening]);
+
+  const handleSend = useCallback(async (c: string) => {
+    console.log("[InterviewPage] Sending Message:", c);
+    if (session) {
+      if (mode === "text") {
+        session.send({ text: c });
+      }
+      // Always add to messages for visualization
+      setMessages((prev: any) => [...prev, { role: "user", content: c, id: crypto.randomUUID() }]);
+    }
+    setText("");
+  }, [session, mode]);
 
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
 
@@ -203,7 +242,7 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
   useEffect(() => {
     if (timeLeft === 0 && !showStartModal && !hasAutoSubmitted && !isGeneratingReport) {
       setHasAutoSubmitted(true);
-      stop();
+      stopSession();
       setMessages((prev: Message[]) => [
         ...prev,
         {
@@ -215,7 +254,7 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
       handleGenerateReport();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, showStartModal, hasAutoSubmitted, isGeneratingReport, stop]);
+  }, [timeLeft, showStartModal, hasAutoSubmitted, isGeneratingReport, stopSession]);
 
   const handleGenerateReport = async () => {
     if (isGeneratingReport) return;
@@ -233,10 +272,13 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages,
-          interviewDetails,
+          messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
+          interviewDetails: {
+            ...interviewDetails,
+            numOfQuestions: messages.filter(m => m.role === 'assistant').length // Calculate for legacy UI if needed
+          },
           faceMeshFeedback: feed,
-          tabSwitchCount: tabSwitchCount, // Passing the violations count
+          tabSwitchCount: tabSwitchCount, 
         }),
       });
       if (!res.ok) throw new Error("Failed to generate report");
@@ -295,6 +337,7 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
           id={params.id}
           speechEnabled={speechEnabled}
           setSpeechEnabled={setSpeechEnabled}
+          status={isActive ? "active" : isConnecting ? "connecting" : "idle"}
         />
 
         {/* Main Content */}
@@ -311,6 +354,64 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
                 startFn={(fn: any) => { startAnalyticsRef.current = fn(); }}
                 stopFn={(fn: any) => { stopAnalyticsRef.current = fn(); }}
               />
+
+              {/* Live Call Overlay */}
+              <AnimatePresence>
+                {isActive && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-20 pointer-events-none rounded-[2.5rem] overflow-hidden"
+                  >
+                    {/* Pulsing Border */}
+                    <div className="absolute inset-0 border-2 border-emerald-500/30 rounded-[2.5rem] animate-pulse" />
+                    
+                    {/* Live Badge */}
+                    <div className="absolute top-6 left-6 flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 backdrop-blur-md">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Live Session</span>
+                    </div>
+
+                    {/* Duration / Status */}
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-3 rounded-2xl bg-black/40 border border-white/10 backdrop-blur-xl">
+                      <div className="flex flex-col items-center">
+                         <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Connection</span>
+                         <span className="text-sm font-bold text-emerald-400">Excellent</span>
+                      </div>
+                      <div className="w-px h-8 bg-white/10" />
+                      <div className="flex flex-col items-center">
+                         <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Interruption</span>
+                         <span className="text-sm font-bold text-blue-400">Enabled</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Visualizer Rings around Camera */}
+              <AnimatePresence>
+                {isActive && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-10">
+                    <motion.div
+                      animate={{
+                        scale: 1 + volume * 2.5,
+                        opacity: volume > 0.01 ? 0.3 : 0.1,
+                        borderColor: aiSpeaking ? "rgba(59, 130, 246, 0.5)" : "rgba(16, 185, 129, 0.5)"
+                      }}
+                      className="absolute w-64 h-64 rounded-full border-2"
+                    />
+                    <motion.div
+                      animate={{
+                        scale: 1 + volume * 4,
+                        opacity: volume > 0.01 ? 0.2 : 0.05,
+                        borderColor: aiSpeaking ? "rgba(168, 85, 247, 0.3)" : "rgba(20, 184, 166, 0.3)"
+                      }}
+                      className="absolute w-80 h-80 rounded-full border-2"
+                    />
+                  </div>
+                )}
+              </AnimatePresence>
             </motion.div>
 
           </div>
@@ -334,7 +435,7 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
               <div className="flex-1 overflow-hidden">
                 <InterviewChatPane
                   messages={messages}
-                  isSpeechLoading={isSpeechLoading || aiSpeaking}
+                  isSpeechLoading={isConnecting || aiSpeaking}
                   setMessages={setMessages}
                 />
               </div>
@@ -352,6 +453,9 @@ const content = `Hello I am ${interviewDetails.username} and I am here to interv
                     setListening={setListening}
                     setText={setText}
                     handleSend={handleSend}
+                    liveActive={isActive}
+                    volume={volume}
+                    stopSession={stopSession}
                   />
                 ) : (
                   <Button

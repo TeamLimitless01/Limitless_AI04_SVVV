@@ -17,6 +17,9 @@ interface InterviewControlsProps {
   setListening: (listening: any) => void;
   setText: (text: string) => void;
   handleSend: (text: string) => void;
+  liveActive?: boolean;
+  volume?: number;
+  stopSession?: () => void;
 }
 
 const InterviewControls = React.memo(function InterviewControls({
@@ -29,6 +32,9 @@ const InterviewControls = React.memo(function InterviewControls({
   setListening,
   setText,
   handleSend,
+  liveActive = false,
+  volume = 0,
+  stopSession
 }: InterviewControlsProps) {
   const recognitionRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,13 +45,15 @@ const InterviewControls = React.memo(function InterviewControls({
   const aiSpeakingRef = useRef(aiSpeaking);
   const textRef = useRef(text); 
   const handleSendRef = useRef(handleSend);
+  const liveActiveRef = useRef(liveActive);
 
   useEffect(() => {
     listeningRef.current = listening;
     aiSpeakingRef.current = aiSpeaking;
     textRef.current = text;
     handleSendRef.current = handleSend;
-  }, [listening, aiSpeaking, text, handleSend]);
+    liveActiveRef.current = liveActive;
+  }, [listening, aiSpeaking, text, handleSend, liveActive]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -84,6 +92,10 @@ const InterviewControls = React.memo(function InterviewControls({
           if (silenceTimeoutRef.current) {
             clearTimeout(silenceTimeoutRef.current);
           }
+
+          // In live mode, we don't automatically "send" the text because voice is always live.
+          // We only use silence detection for traditional turn-based UI.
+          if (liveActiveRef.current) return;
 
           // Set new timeout for silence detection
           silenceTimeoutRef.current = setTimeout(() => {
@@ -183,7 +195,7 @@ const InterviewControls = React.memo(function InterviewControls({
   return (
     <div className="w-full max-w-2xl mx-auto">
       <AnimatePresence mode="wait">
-        {aiSpeaking ? (
+        {(aiSpeaking && !liveActive) ? (
           <motion.div
             key="ai-speaking"
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -223,29 +235,31 @@ const InterviewControls = React.memo(function InterviewControls({
               </motion.div>
             )}
 
-            <div className="flex justify-center">
-              <div className="bg-white/5 p-1 rounded-xl border border-white/10">
-                <div className="flex gap-1">
-                  {[
-                    { id: 'voice', icon: Mic, label: 'Voice' },
-                    { id: 'text', icon: Type, label: 'Text' }
-                  ].map((btn) => (
-                    <button
-                      key={btn.id}
-                      onClick={() => setMode(btn.id as any)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                        mode === btn.id 
-                          ? 'bg-white/10 text-white shadow-lg' 
-                          : 'text-white/40 hover:text-white/60 hover:bg-white/[0.02]'
-                      }`}
-                    >
-                      <btn.icon className={`w-3.5 h-3.5 ${mode === btn.id ? 'text-blue-400' : ''}`} />
-                      {btn.label}
-                    </button>
-                  ))}
+            {!liveActive && (
+              <div className="flex justify-center">
+                <div className="bg-white/5 p-1 rounded-xl border border-white/10">
+                  <div className="flex gap-1">
+                    {[
+                      { id: 'voice', icon: Mic, label: 'Voice' },
+                      { id: 'text', icon: Type, label: 'Text' }
+                    ].map((btn) => (
+                      <button
+                        key={btn.id}
+                        onClick={() => setMode(btn.id as any)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                          mode === btn.id 
+                            ? 'bg-white/10 text-white shadow-lg' 
+                            : 'text-white/40 hover:text-white/60 hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        <btn.icon className={`w-3.5 h-3.5 ${mode === btn.id ? 'text-blue-400' : ''}`} />
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <AnimatePresence mode="wait">
               {mode === "voice" ? (
@@ -256,32 +270,44 @@ const InterviewControls = React.memo(function InterviewControls({
                   exit={{ opacity: 0, scale: 0.95 }}
                   className="flex flex-col items-center gap-6"
                 >
-                  <div className="relative group">
-                    <button
-                      onClick={() => setListening((s: any) => !s)}
-                      className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500 ${
-                        listening 
-                          ? 'bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,0.4)]' 
-                          : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10'
-                      }`}
-                    >
-                      {listening ? (
-                        <StopCircle className="w-10 h-10 animate-pulse" />
-                      ) : (
+                  <div className="flex items-center gap-8">
+                    {/* Main Mic Button */}
+                    <div className="relative group">
+                      <button
+                        onClick={() => setListening((s: any) => !s)}
+                        className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center transition-all duration-500 ${
+                          listening 
+                            ? 'bg-emerald-500 text-white shadow-[0_0_40px_rgba(16,185,129,0.4)]' 
+                            : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10'
+                        }`}
+                      >
                         <Mic className="w-10 h-10" />
+                      </button>
+                      {listening && (
+                        <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
                       )}
-                    </button>
-                    {listening && (
-                      <div className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
-                    )}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10">
-                       <MicVisualizer active={listening} />
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10">
+                        <MicVisualizer active={listening} volume={volume} />
+                      </div>
                     </div>
+
+                    {/* Live Hang Up Button */}
+                    {liveActive && stopSession && (
+                      <motion.button
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        onClick={stopSession}
+                        className="w-16 h-16 rounded-full bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/30 flex items-center justify-center transition-all group active:scale-95"
+                        title="End Interview"
+                      >
+                        <StopCircle className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                      </motion.button>
+                    )}
                   </div>
 
                   <div className="text-center space-y-4 w-full">
-                    <p className={`text-sm font-medium transition-colors ${listening ? 'text-red-400' : 'text-white/40'}`}>
-                      {listening ? "Go ahead, I'm listening..." : "Ready when you are"}
+                    <p className={`text-sm font-bold uppercase tracking-widest transition-colors ${listening ? 'text-emerald-400' : 'text-white/40'}`}>
+                      {listening ? (liveActive ? "Live: Interviewer is Listening" : "Go ahead, I'm listening...") : "Microphone Muted"}
                     </p>
                     {text && (
                       <motion.div
@@ -290,38 +316,40 @@ const InterviewControls = React.memo(function InterviewControls({
                         className="max-w-md mx-auto"
                       >
                         <div className="relative group">
-                          <p className="text-sm text-white/60 italic px-5 py-3 bg-white/5 rounded-2xl border border-white/10 text-left min-h-[60px]">
-                            "{text}"
-                          </p>
-                          <button
-                            onClick={handleReset}
-                            className="absolute -top-2 -right-2 p-1.5 rounded-full bg-white/10 border border-white/10 text-white/40 hover:text-white hover:bg-white/20 transition-all opacity-0 group-hover:opacity-100"
-                            title="Clear transcript"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                          </button>
+                         
+                          {!liveActive && (
+                            <button
+                              onClick={handleReset}
+                              className="absolute -top-2 -right-2 p-1.5 rounded-full bg-white/10 border border-white/10 text-white/40 hover:text-white hover:bg-white/20 transition-all opacity-0 group-hover:opacity-100"
+                              title="Clear transcript"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
-                        <div className="flex gap-3 justify-center mt-6">
-                           <button
-                             onClick={handleReset}
-                             className="px-6 py-2.5 rounded-full border border-white/10 text-white/60 text-sm font-semibold hover:bg-white/5 transition-all"
-                           >
-                             Reset
-                           </button>
-                           <button
-                             onClick={() => {
-                               if (silenceTimeoutRef.current) {
-                                 clearTimeout(silenceTimeoutRef.current);
-                               }
-                               setListening(false);
-                               handleSend(text.trim());
-                               setText("");
-                             }}
-                             className="px-8 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-xl shadow-blue-500/20 transition-all active:scale-95"
-                           >
-                              Send Response
-                           </button>
-                        </div>
+                        {!liveActive && (
+                          <div className="flex gap-3 justify-center mt-6">
+                            <button
+                              onClick={handleReset}
+                              className="px-6 py-2.5 rounded-full border border-white/10 text-white/60 text-sm font-semibold hover:bg-white/5 transition-all"
+                            >
+                              Reset
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (silenceTimeoutRef.current) {
+                                  clearTimeout(silenceTimeoutRef.current);
+                                }
+                                setListening(false);
+                                handleSend(text.trim());
+                                setText("");
+                              }}
+                              className="px-8 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-xl shadow-blue-500/20 transition-all active:scale-95"
+                            >
+                                Send Response
+                            </button>
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </div>

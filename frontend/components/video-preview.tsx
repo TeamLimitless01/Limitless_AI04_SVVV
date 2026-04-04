@@ -234,16 +234,14 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
       blink: br,
     });
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-    ctx.roundRect(10, 10, 120, 24, 6);
-    ctx.fill();
-    ctx.fillStyle = "#10b981";
-    ctx.beginPath();
-    ctx.arc(22, 22, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "white";
-    ctx.font = "bold 10px sans-serif";
-    ctx.fillText("LIVE ANALYSIS", 32, 25);
+    // ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    // ctx.roundRect(10, 10, 120, 24, 6);
+    // ctx.fill();
+    // ctx.beginPath();
+    // ctx.arc(22, 22, 4, 0, Math.PI * 2);
+    // ctx.fill();
+    // ctx.fillStyle = "white";
+    // ctx.font = "bold 10px sans-serif";
   };
 
   const generateFeedback = () => {
