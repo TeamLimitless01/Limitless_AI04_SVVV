@@ -2,7 +2,7 @@
 
 **NeuraView** is an intelligent, high-fidelity mock interview and career preparation platform designed to bridge the gap between preparation and placement. By leveraging advanced LLMs, real-time multimodal analysis, and interactive UI components, NeuraView provides a realistic, high-pressure, yet encouraging environment for candidates to hone their skills.
 
----
+--- 
 
 ## 🚀 Vision
 Empowering students to "mirror" their excellence through AI-driven insights, behavioral coaching, and personalized learning roadmaps.
