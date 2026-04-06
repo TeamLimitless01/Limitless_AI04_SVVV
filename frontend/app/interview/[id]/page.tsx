@@ -205,6 +205,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
           duration: 5000,
           icon: '🚫',
         });
+        
         handleGenerateReport();
       }
     };
