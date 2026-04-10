@@ -74,7 +74,7 @@ export default function DashboardPage() {
 
   if (!dashboard) return null;
 
-  const { overview, charts, recentReports } = dashboard;
+  const { overview, charts, recentReports } = dashboard.data || dashboard;
 
   const containerVariants = {
     hidden: { opacity: 0 },
