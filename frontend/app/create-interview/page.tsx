@@ -292,7 +292,7 @@ function Page() {
                   <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-400">
                     <Target className="h-5 w-5" />
                   </div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">Focus DNA</h2>
+                  <h2 className="text-2xl font-black text-white tracking-tight">Focused On</h2>
                 </div>
 
                 <div className="space-y-10">
