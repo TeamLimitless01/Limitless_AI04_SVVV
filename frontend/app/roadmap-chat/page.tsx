@@ -60,15 +60,15 @@ const ServicesPage = () => {
       href: "/chat",
       cta: "Chat with Neura"
     },
-    {
-      id: "summarize",
-      title: "AI Summarizer",
-      description: "Transform long PDFs and notes into concise, actionable summaries and interactive quizzes.",
-      icon: FileText,
-      color: "orange",
-      href: "/summarize",
-      cta: "Summarize Now"
-    },
+    // {
+    //   id: "summarize",
+    //   title: "AI Summarizer",
+    //   description: "Transform long PDFs and notes into concise, actionable summaries and interactive quizzes.",
+    //   icon: FileText,
+    //   color: "orange",
+    //   href: "/summarize",
+    //   cta: "Summarize Now"
+    // },
     {
       id: "jobs",
       title: "Career Hub",

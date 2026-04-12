@@ -1,9 +1,9 @@
 class CustomSDK {
   async request(endpoint: string, options: RequestInit = {}) {
-    const baseUrl = typeof window !== 'undefined' 
-      ? '' 
+    const baseUrl = typeof window !== 'undefined'
+      ? ''
       : (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_BASE_URL || 'http://localhost:3000');
-    
+
     const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
     const normalizedEndpoint = endpoint.replace(/^\//, "");
     const url = `${normalizedBaseUrl}/api/${normalizedEndpoint}`;
@@ -64,7 +64,7 @@ class CustomSDK {
     if (query.pagination?.limit) qs.set('limit', query.pagination.limit);
     // Add sort
     if (query.sort && query.sort.length > 0) {
-       qs.set('sort', query.sort[0]);
+      qs.set('sort', query.sort[0]);
     }
     const queryString = qs.toString();
     return this.request(`${collection}${queryString ? '?' + queryString : ''}`);
