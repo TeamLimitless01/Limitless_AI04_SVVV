@@ -151,4 +151,4 @@ Neuraview is part of the **Aurobindo AI Hackathon**. We welcome contributions th
  
 ---
 
-Created with ❤️ by **Team Limitless** (LimitlessAI04).
+Created with ❤️ by **Team Limitless** (LimitlessAI04).     
