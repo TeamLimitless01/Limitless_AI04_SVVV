@@ -116,6 +116,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     isConnecting,
     error: liveError,
     startSession,
+    sendSystemMessage,
     stopSession,
     session
   } = useGeminiLive({
@@ -158,7 +159,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     if (interviewData && interviewData[0]?.interviewTime) {
       setTimeLeft(interviewData[0].interviewTime * 60);
     } else {
-      setTimeLeft(15 * 60);
+      setTimeLeft(2 * 60);
     }
   }, [interviewData]);
 
@@ -241,6 +242,12 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   }, [showStartModal, isInterviewCompleted]);
 
   useEffect(() => {
+
+    if (timeLeft === 15){
+      toast.success("15 seconds remaining in the interview !");
+sendSystemMessage("[SYSTEM: 15 seconds remaining. Close the interview now. Thank the candidate by name and end warmly.]");
+    }
+
     if (timeLeft === 0 && !showStartModal && !hasAutoSubmitted && !isGeneratingReport) {
       setHasAutoSubmitted(true);
       stopSession();

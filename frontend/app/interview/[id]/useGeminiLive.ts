@@ -295,11 +295,20 @@ RULES:
         }
     }, [interviewDetails, startMicStreaming, playNextInQueue, stopSession, stopAudioPlayback]);
 
+    const sendSystemMessage = useCallback((text: string) => {
+        if (!sessionRef.current) return;
+        sessionRef.current.sendClientContent({
+            turns: [{ role: "user", parts: [{ text }] }],
+            turnComplete: true
+        });
+    }, []);
+
     return {
         isActive,
         isConnecting,
         error,
         startSession,
+        sendSystemMessage,
         stopSession,
         session: sessionRef.current
     };
