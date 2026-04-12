@@ -335,13 +335,12 @@ function Page() {
 
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {[
-                                        { val: "2", label: "Demo", sub: "2 Min" },
-
+                    { val: "2", label: "Demo", sub: "2 Min" },
                     { val: "5", label: "Quick", sub: "5 Min" },
                     { val: "15", label: "Standard", sub: "15 Min" },
-                    { val: "30", label: "Deep", sub: "30 Min" },
-                    { val: "45", label: "Expert", sub: "45 Min" },
-                    { val: "60", label: "Elite", sub: "60 Min" },
+                    // { val: "30", label: "Deep", sub: "30 Min" },
+                    // { val: "45", label: "Expert", sub: "45 Min" },
+                    // { val: "60", label: "Elite", sub: "60 Min" },
                   ].map((time) => (
                     <button
                       key={time.val}
