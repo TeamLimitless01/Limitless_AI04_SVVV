@@ -244,8 +244,8 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   useEffect(() => {
 
     if (timeLeft === 15){
-      toast.success("15 seconds remaining in the interview !");
-sendSystemMessage("[SYSTEM: 15 seconds remaining. Close the interview now. Thank the candidate by name and end warmly.]");
+      toast("15 seconds remaining in the interview !");
+// sendSystemMessage("[SYSTEM: 15 seconds remaining. Close the interview now. Thank the candidate by name and end warmly.]");
     }
 
     if (timeLeft === 0 && !showStartModal && !hasAutoSubmitted && !isGeneratingReport) {
