@@ -245,7 +245,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
     if (timeLeft === 15){
       toast("15 seconds remaining in the interview !");
-// sendSystemMessage("[SYSTEM: 15 seconds remaining. Close the interview now. Thank the candidate by name and end warmly.]");
+sendSystemMessage("[SYSTEM: 15 seconds remaining. Close the interview now. Thank the candidate by name and end warmly.]");
     }
 
     if (timeLeft === 0 && !showStartModal && !hasAutoSubmitted && !isGeneratingReport) {

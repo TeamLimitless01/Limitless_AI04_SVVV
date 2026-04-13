@@ -335,6 +335,9 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                         setIsConnecting(false);
                         nextStartTimeRef.current = 0;
                         startMicStreaming(sessionPromise);
+                        sessionPromise.then((session) => {
+                            session.sendRealtimeInput({ text: "Hello" });
+                        });
                     },
                     onmessage: async (message: LiveServerMessage) => {
                         const msg = message as any;
@@ -397,10 +400,7 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
 
     const sendSystemMessage = useCallback((text: string) => {
         if (!sessionRef.current) return;
-        sessionRef.current.sendClientContent({
-            turns: [{ role: "user", parts: [{ text }] }],
-            turnComplete: true
-        });
+        sessionRef.current.sendRealtimeInput({ text });
     }, []);
 
     return {
