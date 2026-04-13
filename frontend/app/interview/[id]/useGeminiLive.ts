@@ -336,7 +336,7 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                         nextStartTimeRef.current = 0;
                         startMicStreaming(sessionPromise);
                         sessionPromise.then((session) => {
-                            session.sendRealtimeInput({ text: "Hello" });
+                            session.sendRealtimeInput({ text: "start" });
                         });
                     },
                     onmessage: async (message: LiveServerMessage) => {
