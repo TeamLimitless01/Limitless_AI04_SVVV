@@ -336,7 +336,7 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                         nextStartTimeRef.current = 0;
                         startMicStreaming(sessionPromise);
                         sessionPromise.then((session) => {
-                            session.sendRealtimeInput({ text: "start" });
+                            session.sendRealtimeInput({ text: "[SYSTEM: Begin the interview now. Greet the candidate warmly by name, introduce yourself as Neura, and ask if they are ready to begin.]" });
                         });
                     },
                     onmessage: async (message: LiveServerMessage) => {
