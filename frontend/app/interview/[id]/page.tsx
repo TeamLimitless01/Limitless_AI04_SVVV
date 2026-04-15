@@ -244,7 +244,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   useEffect(() => {
 
     if (timeLeft === 10){
-sendSystemMessage("[SYSTEM: 10 seconds remaining. Close the interview now. Thank the candidate by name and end warmly.]");
+sendSystemMessage("[SYSTEM: 10 seconds remaining. Close the interview now. Thank the candidate by name and say thanks you for using neuraview and end warmly .]");
     }
 
     if (timeLeft === 0 && !showStartModal && !hasAutoSubmitted && !isGeneratingReport) {
