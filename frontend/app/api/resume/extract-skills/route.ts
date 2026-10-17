@@ -117,6 +117,11 @@ RULES:
     let content = data.choices?.[0]?.message?.content || "";
     content = content.replace(/```json\s*|\s*```/g, "").trim();
 
+    return NextResponse.json({
+      success: true,
+      content
+    })
+
     const parsedResponse = JSON.parse(content);
     return NextResponse.json({
       success: true,

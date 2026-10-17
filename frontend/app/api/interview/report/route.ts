@@ -2,7 +2,7 @@ export async function POST(req: Request) {
   try {
     const { messages, interviewDetails, faceMeshFeedback, tabSwitchCount } = await req.json();
 
-    const model = "mistral";
+    const model = "openai/gpt-6-luna";
     const systemPrompt = `
 You are an expert AI recruiter and evaluation system.
 
@@ -86,7 +86,7 @@ Return **only** the JSON in the exact structure above.
     const response = await fetch(API_URI, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.AI_API_TOKEN_POLLINATIONS}`,
+        Authorization: `Bearer sk_EAH7ZUybK4BpBtT4q2KEltJks5uxzZZX`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

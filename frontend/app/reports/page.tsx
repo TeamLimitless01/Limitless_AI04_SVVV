@@ -46,16 +46,16 @@ function ReportsContent() {
       const interview = data.data.find(
         (i: any) => i.documentId === interviewId || i.id?.toString() === interviewId
       );
-      
+
       if (interview && interview.report) {
         try {
           const parsed = typeof interview.report === "string" ? JSON.parse(interview.report) : interview.report;
-          
+
           // Auto-open if not already opened this ID on this page mount
           if (lastProcessedId.current !== interviewId) {
             setSelectedReport(parsed);
             lastProcessedId.current = interviewId;
-          } 
+          }
           // If already opened this ID, but fresh data just arrived that differs from what we show, update it
           else if (selectedReport && JSON.stringify(selectedReport) !== JSON.stringify(parsed)) {
             setSelectedReport(parsed);
@@ -74,14 +74,14 @@ function ReportsContent() {
         toast.error("No conversation logs found for this interview.");
         return;
       }
-      
+
       const toastId = toast.loading("AI is generating notes...");
-      
+
       const response = await fetch("/api/interview/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: interview.conversation?.map((c:any) => c.content),
+          messages: interview.conversation?.map((c: any) => c.content),
           interviewDetails: {
             topic: interview.details,
             skills: interview.skills,
@@ -89,10 +89,10 @@ function ReportsContent() {
           }
         }),
       });
-      
+
       if (!response.ok) throw new Error("API failed");
       const data = await response.json();
-      
+
       const candidateName = interview?.candidateName || "Candidate";
 
       const doc = new jsPDF();
@@ -101,7 +101,7 @@ function ReportsContent() {
       // Header strip (Branding)
       doc.setFillColor(30, 64, 175); // Dark blue theme
       doc.rect(0, 0, 210, 40, 'F');
-      
+
       // Branding text (White)
       doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
@@ -111,38 +111,38 @@ function ReportsContent() {
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text("AI Interview Intelligence", 15, 32);
-      
+
       doc.setFontSize(14);
       doc.setFont("helvetica", "italic");
       doc.text("", 195, 24, { align: "right" });
 
       y = 55;
-      
+
       // Info box for Candidate
       doc.setFillColor(245, 247, 250);
       doc.setDrawColor(200, 200, 200);
       doc.rect(15, y, 180, 30, 'FD');
-      
+
       doc.setFontSize(11);
       doc.setTextColor(50, 50, 50);
       doc.setFont("helvetica", "bold");
       doc.text(`Candidate:`, 20, y + 9);
       doc.setFont("helvetica", "normal");
       doc.text(candidateName, 45, y + 9);
-      
+
       doc.setFont("helvetica", "bold");
       doc.text(`Role:`, 20, y + 18);
       doc.setFont("helvetica", "normal");
       doc.text(interview.details || "Untitled Assessment", 45, y + 18);
-      
+
       doc.setFont("helvetica", "bold");
       doc.text(`Skills Focus:`, 20, y + 27);
       doc.setFont("helvetica", "normal");
       doc.text(interview.skills || "N/A", 45, y + 27);
-      
+
       y += 45;
       doc.setTextColor(30, 30, 30);
-      
+
       if (data.notes && Array.isArray(data.notes)) {
         data.notes.forEach((note: any, index: number) => {
           if (y > 260) {
@@ -169,7 +169,7 @@ function ReportsContent() {
             y += (userAnsLines.length * 6) + 8;
             if (y > 270) { doc.addPage(); y = 20; }
           }
-          
+
           doc.setTextColor(30, 30, 30);
           doc.setFont("helvetica", "normal");
           if (note.key_points && note.key_points.length > 0) {
@@ -185,7 +185,7 @@ function ReportsContent() {
             });
             y += 5;
           }
-          
+
           if (note.suggested_answer_summary) {
             if (y > 265) { doc.addPage(); y = 20; }
             doc.setFont("helvetica", "bold");
@@ -201,11 +201,11 @@ function ReportsContent() {
         doc.setFontSize(12);
         doc.text("No questions detected or could not extract notes.", 15, y);
       }
-      
+
       doc.save(`Interview_Notes_${interview.id || interview.documentId}.pdf`);
       toast.dismiss(toastId);
       toast.success("Notes downloaded as PDF!");
-    } catch(err) {
+    } catch (err) {
       console.error(err);
       toast.dismiss();
       toast.error("Failed to generate notes. Please try again.");
@@ -255,7 +255,7 @@ function ReportsContent() {
             Interview <span className="text-gradient">Insights</span>
           </h1>
           <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-            Every session is a step toward perfection. Analyze your performance data 
+            Every session is a step toward perfection. Analyze your performance data
             and technical depth through AI-conducted session reports.
           </p>
         </header>
@@ -295,16 +295,16 @@ function ReportsContent() {
                           {interview.mode || 'Technical'}
                         </span>
                       </div>
-                      
+
                       <h2 className="text-2xl font-extrabold text-white mb-4 line-clamp-1 leading-tight group-hover:text-blue-400 transition-colors">
                         {interview.details || "Untitled Session"}
                       </h2>
-                      
+
                       <div className="space-y-4 mb-8">
                         <div className="flex items-center gap-3 text-slate-400 text-sm font-medium">
                           <Layers className="h-4 w-4 text-blue-500/50" />
                           <span className="text-wrap break-words overflow-hidden">Skills: {interview.skills || 'General'}</span>
-                        </div>      
+                        </div>
                         <div className="flex items-center gap-3 text-slate-400 text-sm font-medium">
                           <Calendar className="h-4 w-4 text-purple-500/50" />
                           <span>{new Date(interview.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
@@ -367,7 +367,7 @@ function ReportsContent() {
                 </DialogTitle>
                 {/* <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Generated by NeuraView AI Engine</p> */}
               </div>
-                  {/* <Button 
+              {/* <Button 
                     variant="ghost" 
                     size="icon" 
                     onClick={() => setSelectedReport(null)}

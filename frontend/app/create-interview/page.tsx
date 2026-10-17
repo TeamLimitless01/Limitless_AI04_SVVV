@@ -1,11 +1,11 @@
 "use client";
-import { 
-  User, 
-  MapPin, 
-  FileText, 
-  Settings2, 
-  Target, 
-  Timer, 
+import {
+  User,
+  MapPin,
+  FileText,
+  Settings2,
+  Target,
+  Timer,
   LayoutDashboard,
   Brain,
   Sparkles,
@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import Orb from "@/components/Orb";
 import TrueFocus from "@/components/TrueFocus";
-import Stepper, { Step } from "@/components/ui/stepper"; 
+import Stepper, { Step } from "@/components/ui/stepper";
 import { strapi } from "@/lib/api/sdk";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -32,7 +32,7 @@ import toast from "react-hot-toast";
 
 function Page() {
   const [candidateName, setCandidateName] = useState("");
-  const [resume, setResume] = useState<File | null>(null); 
+  const [resume, setResume] = useState<File | null>(null);
   const [mode, setMode] = useState("Technical");
   const [difficulty, setDifficulty] = useState("medium");
   const [skills, setSkills] = useState("");
@@ -41,7 +41,7 @@ function Page() {
   const [interviewLanguage, setInterviewLanguage] = useState("english");
   const [aiSummary, setAiSummary] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
-  
+
   const router = useRouter();
   const { data } = useSession<any>();
   const [loading, setLoading] = useState(false);
@@ -49,11 +49,11 @@ function Page() {
   const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     setResume(file);
     setIsExtracting(true);
     const loadingToast = toast.loading("AI is analyzing your resume profile...");
-    
+
     try {
       const formData = new FormData();
       formData.append("pdf", file);
@@ -66,7 +66,7 @@ function Page() {
       if (!res.ok) throw new Error("Failed to extract data");
 
       const extraction = await res.json();
-      
+
       // Autofill logic
       if (extraction.candidateName) setCandidateName(extraction.candidateName);
       if (extraction.jobRole) setTopic(extraction.jobRole);
@@ -142,12 +142,12 @@ function Page() {
               animationDuration={2}
               pauseBetweenAnimations={0.5}
             />
-            <motion.div 
-               animate={{ opacity: [0.3, 0.6, 0.3] }}
-               transition={{ repeat: Infinity, duration: 2 }}
-               className="text-slate-400 font-medium tracking-widest text-xs uppercase"
+            <motion.div
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="text-slate-400 font-medium tracking-widest text-xs uppercase"
             >
-               Tuning AI Recruiter Constraints...
+              Tuning AI Recruiter Constraints...
             </motion.div>
           </div>
         ) : (
@@ -172,7 +172,7 @@ function Page() {
                   </h2>
                 </div>
                 <p className="text-slate-400 text-lg md:text-xl leading-relaxed mb-10">
-                  Welcome! We're about to build a high-fidelity mock interview tailored strictly to your profile. 
+                  Welcome! We're about to build a high-fidelity mock interview tailored strictly to your profile.
                   Provide your details manually or upload a resume to let our AI do the hard work for you.
                 </p>
                 <div className="flex flex-wrap gap-4">
@@ -182,7 +182,7 @@ function Page() {
                     { icon: Zap, text: "Instant Analysis" }
                   ].map((inf, i) => (
                     <div key={i} className="px-4 py-2 rounded-full bg-white/5 border border-white/5 text-xs font-bold text-slate-500 flex items-center gap-2">
-                       <inf.icon className="w-3.5 h-3.5" /> {inf.text}
+                      <inf.icon className="w-3.5 h-3.5" /> {inf.text}
                     </div>
                   ))}
                 </div>
@@ -226,7 +226,7 @@ function Page() {
 
                   <div className="relative">
                     <label className={LabelClasses}>Smart Profile Autofill</label>
-                    <label 
+                    <label
                       className={`flex flex-col items-center justify-center p-8 h-[162px] rounded-2xl border-2 border-dashed transition-all cursor-pointer ${resume ? 'border-blue-500/50 bg-blue-500/10' : 'border-white/10 hover:border-white/30 bg-white/5'}`}
                     >
                       <input
@@ -236,10 +236,10 @@ function Page() {
                         className="hidden"
                       />
                       {isExtracting ? (
-                         <div className="flex flex-col items-center gap-3">
-                           <div className="w-8 h-8 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
-                           <span className="text-xs font-bold text-blue-400">Scanning Resume...</span>
-                         </div>
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="w-8 h-8 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
+                          <span className="text-xs font-bold text-blue-400">Scanning Resume...</span>
+                        </div>
                       ) : resume ? (
                         <div className="text-center">
                           <CheckCircle2 className="w-10 h-10 text-blue-400 mx-auto mb-3" />
@@ -368,11 +368,11 @@ function Page() {
                   Your personalized interview parameters are calibrated. Click **Finish** below to launch your session with your AI recruiter.
                 </p>
                 <div className="p-6 rounded-3xl bg-blue-500/5 border border-blue-500/20">
-                   <div className="flex justify-between items-center text-sm font-bold">
-                     <span className="text-slate-500 uppercase tracking-widest text-[10px]">Candidate Profile</span>
-                     <span className="text-blue-400 italic">Pre-Calibrated</span>
-                   </div>
-                   <p className="text-white font-medium mt-2">{candidateName || "Candidate"} • {topic || "General Assessment"}</p>
+                  <div className="flex justify-between items-center text-sm font-bold">
+                    <span className="text-slate-500 uppercase tracking-widest text-[10px]">Candidate Profile</span>
+                    <span className="text-blue-400 italic">Pre-Calibrated</span>
+                  </div>
+                  <p className="text-white font-medium mt-2">{candidateName || "Candidate"} • {topic || "General Assessment"}</p>
                 </div>
               </div>
             </Step>

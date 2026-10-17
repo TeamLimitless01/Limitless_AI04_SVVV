@@ -67,13 +67,13 @@ export async function POST(req: Request) {
     const upstreamResponse = await fetch(API_URI, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.AI_API_TOKEN_POLLINATIONS}`,
+        Authorization: `Bearer sk_EAH7ZUybK4BpBtT4q2KEltJks5uxzZZX`,
         "Content-Type": "application/json",
         "HTTP-Referer": `${process.env.SITE_BASE_URL}`,
         "X-Title": "VOID AI",
       },
       body: JSON.stringify({
-        model: 'gemini-search',
+        model: 'openai/gpt-6-luna',
         stream: isStream || false,
         messages: [systemtPrompt, ...messages],
       }),

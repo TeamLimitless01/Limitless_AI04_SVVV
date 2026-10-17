@@ -6,7 +6,7 @@ export async function POST(req: Request) {
       interviewDetails,
     } = await req.json();
 
-    const model = 'sarvam-105b';
+    const model = 'openai/gpt-6-luna';
 
     const {
       mode: interviewMode,
@@ -99,13 +99,13 @@ INTERVIEW SCRIPT:
 - Remeber to stricktly use fonts of ${interviewLanguage} language
 `;
 
-    const API_URI = "https://api.sarvam.ai/v1/chat/completions";
-    const API_KEY = "sk_gq7o64gi_PSgHBegik8dSJUvCVctMkp2W";
+    const API_URI = "https://gen.pollinations.ai/v1/chat/completions";
+    const API_KEY = "sk_EAH7ZUybK4BpBtT4q2KEltJks5uxzZZX";
 
     const upstreamResponse = await fetch(API_URI, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${API_KEY || process.env.AI_API_TOKEN_POLLINATIONS}`,
+        Authorization: `Bearer ${API_KEY}`,
         "Content-Type": "application/json",
         "HTTP-Referer": `${process.env.SITE_BASE_URL}`,
         "X-Title": "VOID AI",

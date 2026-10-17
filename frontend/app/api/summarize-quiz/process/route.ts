@@ -94,16 +94,16 @@ export async function POST(req: NextRequest) {
 
     const limitedText = cleanText.slice(0, 12000);
 
-    const API_URI = "https://api.sarvam.ai/v1/chat/completions";
+    const API_URI = "https://gen.pollinations.ai/v1/chat/completions";
 
     const response = await fetch(API_URI, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.SARVAM_API_KEY || "sk_9b69chge_HbpmI6Ku4cN2HKwiycZJm4PM"}`,
+        Authorization: `Bearer sk_EAH7ZUybK4BpBtT4q2KEltJks5uxzZZX`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "sarvam-105b",
+        model: "openai/gpt-6-luna",
         messages: [
           {
             role: "system",
@@ -115,20 +115,19 @@ export async function POST(req: NextRequest) {
             content: limitedText,
           },
         ],
-        temperature: 0.3,
+        temperature: 0,
       }),
     });
 
-    // ❗ handle API failure
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Sarvam API Error:", errorText);
-      throw new Error("Sarvam API failed");
+      console.error("Pollinations API Error:", errorText);
+      throw new Error("Pollinations API failed");
     }
 
     const data = await response.json();
 
-    console.log("Sarvam response:", data);
+    console.log("Pollinations response:", data);
 
     // ✅ correct parsing
     const summary =

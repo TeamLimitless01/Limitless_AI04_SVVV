@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     // Generate real JWT
     const token = jwt.sign(
-      { id: user._id.toString(), email: user.email }, 
+      { id: user._id.toString(), email: user.email },
       process.env.NEXTAUTH_SECRET || 'secret',
       { expiresIn: "7d" }
     );

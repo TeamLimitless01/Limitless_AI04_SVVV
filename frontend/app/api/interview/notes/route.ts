@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       return `Message ${i + 1}: ${m}`;
     }).join('\n');
 
-    const model = 'mistral'; // Using the standard AI model for this project
+    const model = 'openai/gpt-6-luna'; // Using the standard AI model for this project
     const API_URI = "https://gen.pollinations.ai/v1/chat/completions";
 
     const prompt = `
@@ -54,7 +54,7 @@ Return ONLY valid JSON matching this exact structure, with no markdown code bloc
     const upstreamResponse = await fetch(API_URI, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.AI_API_TOKEN_POLLINATIONS}`,
+        Authorization: `Bearer sk_EAH7ZUybK4BpBtT4q2KEltJks5uxzZZX`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

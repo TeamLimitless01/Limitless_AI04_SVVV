@@ -2,7 +2,7 @@ export async function POST(req: Request) {
   try {
     const { roadmapDetails } = await req.json();
 
-    const model = "openai-fast";
+    const model = "openai/gpt-6-luna";
 
     const systemPrompt = `
  You are a Professional AI Roadmap Generator.
@@ -110,7 +110,7 @@ Now generate the roadmap in STRICT raw JSON:
     const response = await fetch(API_URI, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.AI_API_TOKEN_POLLINATIONS}`,
+        Authorization: `Bearer sk_EAH7ZUybK4BpBtT4q2KEltJks5uxzZZX`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
