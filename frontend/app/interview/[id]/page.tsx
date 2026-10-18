@@ -89,15 +89,18 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     if (mode === "voice" && transcription.text) {
       setText(transcription.text);
 
+      // Interim results: only update the live preview text, don't lock into message history
+      if (transcription.interim) return;
+
       setMessages((prev: any) => {
         // If we don't have an ID yet, or the last message is NOT a user message from this transcription
         const lastMessage = prev[prev.length - 1];
         if (lastMessage?.role === "user" && lastMessage.id === userTranscriptMsgId.current) {
-          // Update the existing message
+          // Update the existing message with the final text
           const newMsg = { ...lastMessage, content: transcription.text };
           return [...prev.slice(0, -1), newMsg];
         } else {
-          // New message
+          // New final message
           const newId = crypto.randomUUID();
           userTranscriptMsgId.current = newId;
           const newMsg = {
