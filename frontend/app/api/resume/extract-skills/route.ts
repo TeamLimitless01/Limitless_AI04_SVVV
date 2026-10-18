@@ -98,33 +98,54 @@ RULES:
 4. Return ABSOLUTELY NO OTHER TEXT, just the raw JSON.
 `;
 
-    const apiRes = await fetch("https://api.sarvam.ai/v1/chat/completions", {
+    const apiRes = await fetch("https://api.sarvam.ai/v2/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.SARVAM_API_KEY || "sk_1nabhvxz_X6kklK1eY0ukPImYdg0lvJsd"}`,
+        "api-subscription-key": process.env.SARVAM_API_KEY || "sk_1nabhvxz_X6kklK1eY0ukPImYdg0lvJsd",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: "sarvam-105b",
         temperature: 0.1,
-        messages: [{ role: "user", content: prompt }]
+        messages: [{ role: "user", content: prompt }],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "resume_extraction",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                skills: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                summary: { type: "string" },
+                improvements: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                jobRole: { type: "string" },
+                suggestedDifficulty: { type: "string" },
+                suggestedMode: { type: "string" },
+                candidateName: { type: "string" },
+              },
+              required: ["skills", "summary", "improvements", "jobRole", "suggestedDifficulty", "suggestedMode", "candidateName"],
+              additionalProperties: false,
+            },
+          },
+        },
       }),
     });
 
-    if (!apiRes.ok) throw new Error("LLM Skill Extraction Failed");
-
-    const data = await apiRes.json();
-    let content = data.choices?.[0]?.message?.content || "";
-
-    // Strip markdown code fences if present
-    content = content.replace(/```json\s*|\s*```/g, "").trim();
-
-    // Extract the first { ... } block — guards against any preamble/postamble text the LLM adds
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      content = jsonMatch[0];
+    if (!apiRes.ok) {
+      const errBody = await apiRes.text();
+      throw new Error(`Sarvam API ${apiRes.status}: ${errBody}`);
     }
 
+    const data = await apiRes.json();
+    const content = data.choices?.[0]?.message?.content; // guaranteed JSON string from v2
+    
     let parsedResponse: any = {};
     try {
       parsedResponse = JSON.parse(content);
