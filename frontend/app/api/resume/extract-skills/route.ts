@@ -115,14 +115,24 @@ RULES:
 
     const data = await apiRes.json();
     let content = data.choices?.[0]?.message?.content || "";
+
+    // Strip markdown code fences if present
     content = content.replace(/```json\s*|\s*```/g, "").trim();
 
-    return NextResponse.json({
-      success: true,
-      content
-    })
+    // Extract the first { ... } block — guards against any preamble/postamble text the LLM adds
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      content = jsonMatch[0];
+    }
 
-    const parsedResponse = JSON.parse(content);
+    let parsedResponse: any = {};
+    try {
+      parsedResponse = JSON.parse(content);
+    } catch (parseErr) {
+      console.error("JSON parse error — raw content:", content);
+      throw new Error("Failed to parse LLM response as JSON");
+    }
+
     return NextResponse.json({
       success: true,
       skills: parsedResponse.skills || [],
