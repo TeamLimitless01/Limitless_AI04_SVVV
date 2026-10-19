@@ -3,8 +3,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 // Audio constants
 const SAMPLE_RATE = 24000;
-const CHUNK_SIZE = 4096;         // Larger buffer = smoother, less glitchy audio
-const JITTER_BUFFER_SIZE = 2;    // Reduced for lower latency
+const CHUNK_SIZE = 1024;
+const JITTER_BUFFER_SIZE = 3;
 
 export function useGeminiLive({
     interviewDetails,
@@ -29,9 +29,6 @@ export function useGeminiLive({
     const isPlayingRef = useRef(false);
     const isBufferingRef = useRef(true);
     const activeSourceRef = useRef<AudioBufferSourceNode | null>(null);
-    // Output audio processing chain for clear AI voice playback
-    const outputGainRef = useRef<GainNode | null>(null);
-    const outputCompressorRef = useRef<DynamicsCompressorNode | null>(null);
 
     const isMutedRef = useRef(isMuted);
     useEffect(() => {
@@ -76,12 +73,8 @@ export function useGeminiLive({
         const source = audioContextRef.current.createBufferSource();
         source.buffer = audioBuffer;
 
-        // Route AI audio through: source → gain → compressor → output
-        // This normalizes volume and reduces harshness for clearer AI voice
-        const destination = outputGainRef.current && outputCompressorRef.current
-            ? outputGainRef.current
-            : audioContextRef.current.destination;
-        source.connect(destination);
+        // Use a GainNode for smoother stopping if needed, but direct connect is fine for fragments
+        source.connect(audioContextRef.current.destination);
         activeSourceRef.current = source;
 
         const currentTime = audioContextRef.current.currentTime;
@@ -116,7 +109,6 @@ export function useGeminiLive({
         if (activeSourceRef.current) {
             try {
                 activeSourceRef.current.stop();
-                activeSourceRef.current.disconnect();
             } catch (e) { }
             activeSourceRef.current = null;
         }
@@ -132,16 +124,6 @@ export function useGeminiLive({
         if (processorRef.current) {
             processorRef.current.disconnect();
             processorRef.current = null;
-        }
-
-        if (outputGainRef.current) {
-            try { outputGainRef.current.disconnect(); } catch (e) { }
-            outputGainRef.current = null;
-        }
-
-        if (outputCompressorRef.current) {
-            try { outputCompressorRef.current.disconnect(); } catch (e) { }
-            outputCompressorRef.current = null;
         }
 
         if (streamRef.current) {
@@ -163,28 +145,10 @@ export function useGeminiLive({
     }, [stopAudioPlayback]);
 
     const startMicStreaming = useCallback((sessionPromise: Promise<any>) => {
-        const ctx = audioContextRef.current;
-        if (!ctx || !streamRef.current) return;
+        if (!audioContextRef.current || !streamRef.current) return;
 
-        const source = ctx.createMediaStreamSource(streamRef.current);
-
-        // ── Input audio processing chain ──────────────────────────────────────
-        // 1. High-pass filter: cuts sub-100 Hz rumble (AC hum, keyboard noise)
-        const highpass = ctx.createBiquadFilter();
-        highpass.type = 'highpass';
-        highpass.frequency.value = 100;
-        highpass.Q.value = 0.7;
-
-        // 2. Dynamics compressor: evens out volume so soft speech is louder
-        //    and loud pops/breaths are dampened → cleaner transcription
-        const inputCompressor = ctx.createDynamicsCompressor();
-        inputCompressor.threshold.value = -24;  // dB — start compressing here
-        inputCompressor.knee.value = 10;         // soft knee for natural sound
-        inputCompressor.ratio.value = 4;         // 4:1 compression
-        inputCompressor.attack.value = 0.003;    // 3ms — fast enough for speech
-        inputCompressor.release.value = 0.25;    // 250ms
-
-        processorRef.current = ctx.createScriptProcessor(CHUNK_SIZE, 1, 1);
+        const source = audioContextRef.current.createMediaStreamSource(streamRef.current);
+        processorRef.current = audioContextRef.current.createScriptProcessor(CHUNK_SIZE, 1, 1);
 
         processorRef.current.onaudioprocess = (e) => {
             if (isMutedRef.current) return;
@@ -194,21 +158,23 @@ export function useGeminiLive({
             for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
             setVolumeRef.current(Math.sqrt(sum / inputData.length));
 
-            // Convert float32 → int16 PCM
             const pcmData = new Int16Array(inputData.length);
             for (let i = 0; i < inputData.length; i++) {
                 pcmData[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
             }
 
-            // Fast base64 encoding via Uint8Array
-            const base64Data = btoa(
-                String.fromCharCode(...new Uint8Array(pcmData.buffer))
-            );
+            const uint8Array = new Uint8Array(pcmData.buffer);
+            let binary = '';
+            for (let i = 0; i < uint8Array.byteLength; i++) binary += String.fromCharCode(uint8Array[i]);
+            const base64Data = btoa(binary);
 
             sessionPromise.then((session) => {
                 try {
                     session.sendRealtimeInput({
-                        audio: { mimeType: 'audio/pcm;rate=24000', data: base64Data }
+                        audio: {
+                            mimeType: 'audio/pcm;rate=24000',
+                            data: base64Data
+                        }
                     });
                 } catch (err) {
                     console.error("[useGeminiLive] Error sending audio input:", err);
@@ -216,12 +182,8 @@ export function useGeminiLive({
             });
         };
 
-        // Chain: mic → highpass → compressor → processor
-        // Processor connects to a silent destination (required to keep running, no speaker output)
-        source.connect(highpass);
-        highpass.connect(inputCompressor);
-        inputCompressor.connect(processorRef.current);
-        processorRef.current.connect(ctx.createGain()); // silent sink — avoids feedback
+        source.connect(processorRef.current);
+        processorRef.current.connect(audioContextRef.current.destination);
     }, []);
 
     const startSession = useCallback(async () => {
@@ -236,33 +198,7 @@ export function useGeminiLive({
             audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
             if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
 
-            // ── Output audio processing chain (AI voice playback) ─────────────
-            // GainNode: slight boost so AI voice is clearly audible
-            outputGainRef.current = audioContextRef.current.createGain();
-            outputGainRef.current.gain.value = 1.4;
-
-            // Compressor: prevents clipping on loud AI responses, makes voice even
-            outputCompressorRef.current = audioContextRef.current.createDynamicsCompressor();
-            outputCompressorRef.current.threshold.value = -18;
-            outputCompressorRef.current.knee.value = 6;
-            outputCompressorRef.current.ratio.value = 3;
-            outputCompressorRef.current.attack.value = 0.002;
-            outputCompressorRef.current.release.value = 0.2;
-
-            // Wire: gain → compressor → speakers
-            outputGainRef.current.connect(outputCompressorRef.current);
-            outputCompressorRef.current.connect(audioContextRef.current.destination);
-
-            // Better microphone capture: echo cancel, noise suppress, auto gain
-            streamRef.current = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true,
-                    channelCount: 1,        // mono — all we need for STT
-                    sampleRate: SAMPLE_RATE,
-                }
-            });
+            streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
             const ai = new GoogleGenAI({ apiKey });
 
             const sanitize = (text: string) =>
@@ -407,22 +343,9 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                         const msg = message as any;
 
                         if (message.serverContent?.inputTranscription) {
-                            const t = message.serverContent.inputTranscription;
-                            const isFinal = (t as any).isFinal ?? (t as any).is_final ?? true;
-                            console.log(`[STT] input transcription (final=${isFinal}):`, t.text);
-                            // Only forward FINAL transcriptions — interim ones are noisy/inaccurate
-                            if (isFinal) {
-                                onUserTranscriptionRef.current?.(t);
-                            } else {
-                                // Show interim text in the UI only (don't send to AI)
-                                onUserTranscriptionRef.current?.({ ...t, interim: true });
-                            }
+                            onUserTranscriptionRef.current?.(message.serverContent.inputTranscription);
                         } else if (msg.inputAudioTranscription) {
-                            const t = msg.inputAudioTranscription;
-                            const isFinal = t.isFinal ?? t.is_final ?? true;
-                            if (isFinal) {
-                                onUserTranscriptionRef.current?.(t);
-                            }
+                            onUserTranscriptionRef.current?.(msg.inputAudioTranscription);
                         }
 
                         const outputTranscription = message.serverContent?.outputTranscription || msg.outputAudioTranscription;
