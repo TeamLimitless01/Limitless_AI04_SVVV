@@ -1,11 +1,10 @@
 import { GoogleGenAI, LiveServerMessage, Modality } from "@google/genai";
 import { useState, useEffect, useRef, useCallback } from "react";
 
-// Gemini Live Audio constants
-const INPUT_SAMPLE_RATE = 16000;   // Gemini Live STT expects 16kHz mono PCM
-const OUTPUT_SAMPLE_RATE = 24000;  // Gemini Live TTS generates 24kHz audio
-const CHUNK_SIZE = 4096;
-const JITTER_BUFFER_SIZE = 2;
+// Audio constants
+const SAMPLE_RATE = 24000;
+const CHUNK_SIZE = 4096;         // Larger buffer = smoother, less glitchy audio
+const JITTER_BUFFER_SIZE = 2;    // Reduced for lower latency
 
 export function useGeminiLive({
     interviewDetails,
@@ -21,20 +20,15 @@ export function useGeminiLive({
     const [isConnecting, setIsConnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const inputAudioContextRef = useRef<AudioContext | null>(null);
-    const outputAudioContextRef = useRef<AudioContext | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const processorRef = useRef<ScriptProcessorNode | null>(null);
     const sessionRef = useRef<any>(null);
-
     const audioQueueRef = useRef<Int16Array[]>([]);
     const nextStartTimeRef = useRef<number>(0);
     const isPlayingRef = useRef(false);
     const isBufferingRef = useRef(true);
-    const playbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const scheduledSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
-    const accumulatedAiTextRef = useRef<string>("");
-
+    const activeSourceRef = useRef<AudioBufferSourceNode | null>(null);
     // Output audio processing chain for clear AI voice playback
     const outputGainRef = useRef<GainNode | null>(null);
     const outputCompressorRef = useRef<DynamicsCompressorNode | null>(null);
@@ -60,40 +54,11 @@ export function useGeminiLive({
         setIsInterviewCompletedRef.current = setIsInterviewCompleted;
     }, [onMessage, onInterrupt, onUserTranscription, setVolume, setAiSpeaking, setIsInterviewCompleted]);
 
-    const stopAudioPlayback = useCallback(() => {
-        console.log("[useGeminiLive] Stopping Audio Playback...");
-        if (playbackTimeoutRef.current) {
-            clearTimeout(playbackTimeoutRef.current);
-            playbackTimeoutRef.current = null;
-        }
-
-        // Stop all currently scheduled/playing audio buffer sources immediately
-        scheduledSourcesRef.current.forEach((source) => {
-            try {
-                source.stop();
-                source.disconnect();
-            } catch (e) { }
-        });
-        scheduledSourcesRef.current.clear();
-
-        audioQueueRef.current = [];
-        isPlayingRef.current = false;
-        isBufferingRef.current = true;
-        setAiSpeakingRef.current(false);
-        nextStartTimeRef.current = 0;
-    }, []);
-
-    const playNextInQueue = useCallback(() => {
-        const ctx = outputAudioContextRef.current;
-        if (!ctx || audioQueueRef.current.length === 0) {
+    const playNextInQueue = useCallback(async () => {
+        if (audioQueueRef.current.length === 0 || !audioContextRef.current) {
             isPlayingRef.current = false;
-            // Delay disabling speech indicator until currently scheduled audio finishes
-            const remaining = Math.max(0, (nextStartTimeRef.current - (ctx?.currentTime ?? 0)) * 1000);
-            setTimeout(() => {
-                if (audioQueueRef.current.length === 0 && scheduledSourcesRef.current.size === 0) {
-                    setAiSpeakingRef.current(false);
-                }
-            }, remaining);
+            setAiSpeakingRef.current(false);
+            activeSourceRef.current = null;
             return;
         }
 
@@ -101,39 +66,60 @@ export function useGeminiLive({
         setAiSpeakingRef.current(true);
         const pcmData = audioQueueRef.current.shift()!;
 
-        const audioBuffer = ctx.createBuffer(1, pcmData.length, OUTPUT_SAMPLE_RATE);
+        const audioBuffer = audioContextRef.current.createBuffer(1, pcmData.length, SAMPLE_RATE);
         const channelData = audioBuffer.getChannelData(0);
 
         for (let i = 0; i < pcmData.length; i++) {
             channelData[i] = pcmData[i] / 0x7FFF;
         }
 
-        const source = ctx.createBufferSource();
+        const source = audioContextRef.current.createBufferSource();
         source.buffer = audioBuffer;
 
-        const destination = outputGainRef.current ?? ctx.destination;
+        // Route AI audio through: source → gain → compressor → output
+        // This normalizes volume and reduces harshness for clearer AI voice
+        const destination = outputGainRef.current && outputCompressorRef.current
+            ? outputGainRef.current
+            : audioContextRef.current.destination;
         source.connect(destination);
+        activeSourceRef.current = source;
 
-        scheduledSourcesRef.current.add(source);
-        source.onended = () => {
-            scheduledSourcesRef.current.delete(source);
-            if (scheduledSourcesRef.current.size === 0 && audioQueueRef.current.length === 0) {
-                setAiSpeakingRef.current(false);
-            }
-        };
-
-        const currentTime = ctx.currentTime;
+        const currentTime = audioContextRef.current.currentTime;
         if (nextStartTimeRef.current < currentTime) {
             nextStartTimeRef.current = currentTime + 0.01;
         }
 
         source.start(nextStartTimeRef.current);
-        nextStartTimeRef.current += audioBuffer.duration;
 
-        const timeout = (nextStartTimeRef.current - ctx.currentTime) * 1000 - 40;
-        playbackTimeoutRef.current = setTimeout(() => {
-            playNextInQueue();
-        }, Math.max(0, timeout));
+        // Track the end of the node
+        source.onended = () => {
+            if (activeSourceRef.current === source) {
+                activeSourceRef.current = null;
+            }
+        };
+
+        const duration = audioBuffer.duration;
+        nextStartTimeRef.current += duration;
+
+        const timeout = (nextStartTimeRef.current - currentTime) * 1000 - 50;
+        setTimeout(() => playNextInQueue(), Math.max(0, timeout));
+    }, []);
+
+    const stopAudioPlayback = useCallback(() => {
+        console.log("[useGeminiLive] Stopping Audio Playback...");
+        audioQueueRef.current = [];
+        isPlayingRef.current = false;
+        isBufferingRef.current = true;
+        setAiSpeakingRef.current(false);
+        nextStartTimeRef.current = 0;
+
+        if (activeSourceRef.current) {
+            try {
+                activeSourceRef.current.stop();
+                activeSourceRef.current.disconnect();
+            } catch (e) { }
+            activeSourceRef.current = null;
+        }
     }, []);
 
     const stopSession = useCallback(() => {
@@ -159,18 +145,13 @@ export function useGeminiLive({
         }
 
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
         }
 
-        if (inputAudioContextRef.current) {
-            inputAudioContextRef.current.close().catch(() => { });
-            inputAudioContextRef.current = null;
-        }
-
-        if (outputAudioContextRef.current) {
-            outputAudioContextRef.current.close().catch(() => { });
-            outputAudioContextRef.current = null;
+        if (audioContextRef.current) {
+            audioContextRef.current.close().catch(() => { });
+            audioContextRef.current = null;
         }
 
         if (sessionRef.current) {
@@ -181,97 +162,66 @@ export function useGeminiLive({
         }
     }, [stopAudioPlayback]);
 
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            stopSession();
-        };
-    }, [stopSession]);
-
-    // Resamples and converts Float32 audio to 16kHz 16-bit linear PCM
-    const downsampleTo16kPCM = (input: Float32Array, inputRate: number): Int16Array => {
-        if (inputRate === INPUT_SAMPLE_RATE) {
-            const pcmData = new Int16Array(input.length);
-            for (let i = 0; i < input.length; i++) {
-                pcmData[i] = Math.max(-1, Math.min(1, input[i])) * 0x7FFF;
-            }
-            return pcmData;
-        }
-
-        const ratio = inputRate / INPUT_SAMPLE_RATE;
-        const newLength = Math.round(input.length / ratio);
-        const pcmData = new Int16Array(newLength);
-        for (let i = 0; i < newLength; i++) {
-            const originalIndex = Math.min(Math.round(i * ratio), input.length - 1);
-            pcmData[i] = Math.max(-1, Math.min(1, input[originalIndex])) * 0x7FFF;
-        }
-        return pcmData;
-    };
-
-    const startMicStreaming = useCallback(() => {
-        const ctx = inputAudioContextRef.current;
+    const startMicStreaming = useCallback((sessionPromise: Promise<any>) => {
+        const ctx = audioContextRef.current;
         if (!ctx || !streamRef.current) return;
 
         const source = ctx.createMediaStreamSource(streamRef.current);
 
-        // 1. High-pass filter: cuts sub-100 Hz rumble
+        // ── Input audio processing chain ──────────────────────────────────────
+        // 1. High-pass filter: cuts sub-100 Hz rumble (AC hum, keyboard noise)
         const highpass = ctx.createBiquadFilter();
-        highpass.type = "highpass";
+        highpass.type = 'highpass';
         highpass.frequency.value = 100;
         highpass.Q.value = 0.7;
 
-        // 2. Dynamics compressor: normalizes input speech
+        // 2. Dynamics compressor: evens out volume so soft speech is louder
+        //    and loud pops/breaths are dampened → cleaner transcription
         const inputCompressor = ctx.createDynamicsCompressor();
-        inputCompressor.threshold.value = -24;
-        inputCompressor.knee.value = 10;
-        inputCompressor.ratio.value = 4;
-        inputCompressor.attack.value = 0.003;
-        inputCompressor.release.value = 0.25;
+        inputCompressor.threshold.value = -24;  // dB — start compressing here
+        inputCompressor.knee.value = 10;         // soft knee for natural sound
+        inputCompressor.ratio.value = 4;         // 4:1 compression
+        inputCompressor.attack.value = 0.003;    // 3ms — fast enough for speech
+        inputCompressor.release.value = 0.25;    // 250ms
 
         processorRef.current = ctx.createScriptProcessor(CHUNK_SIZE, 1, 1);
 
         processorRef.current.onaudioprocess = (e) => {
-            if (isMutedRef.current || !sessionRef.current) return;
+            if (isMutedRef.current) return;
 
             const inputData = e.inputBuffer.getChannelData(0);
             let sum = 0;
             for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
             setVolumeRef.current(Math.sqrt(sum / inputData.length));
 
-            // Downsample and convert to 16kHz 16-bit PCM
-            const pcmData = downsampleTo16kPCM(inputData, ctx.sampleRate);
-
-            // Fast base64 encoding
-            const bytes = new Uint8Array(pcmData.buffer);
-            let binary = "";
-            const len = bytes.byteLength;
-            for (let i = 0; i < len; i++) {
-                binary += String.fromCharCode(bytes[i]);
+            // Convert float32 → int16 PCM
+            const pcmData = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+                pcmData[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
             }
-            const base64Data = btoa(binary);
 
-            try {
-                sessionRef.current.sendRealtimeInput({
-                    audio: {
-                        mimeType: `audio/pcm;rate=${INPUT_SAMPLE_RATE}`,
-                        data: base64Data
-                    }
-                });
-            } catch (err) {
-                console.error("[useGeminiLive] Error sending audio input:", err);
-            }
+            // Fast base64 encoding via Uint8Array
+            const base64Data = btoa(
+                String.fromCharCode(...new Uint8Array(pcmData.buffer))
+            );
+
+            sessionPromise.then((session) => {
+                try {
+                    session.sendRealtimeInput({
+                        audio: { mimeType: 'audio/pcm;rate=24000', data: base64Data }
+                    });
+                } catch (err) {
+                    console.error("[useGeminiLive] Error sending audio input:", err);
+                }
+            });
         };
 
-        // Graph routing: Source -> Highpass -> Compressor -> Processor -> Silent Sink -> Destination
+        // Chain: mic → highpass → compressor → processor
+        // Processor connects to a silent destination (required to keep running, no speaker output)
         source.connect(highpass);
         highpass.connect(inputCompressor);
         inputCompressor.connect(processorRef.current);
-
-        // Required: Connect processor to destination via 0-gain sink to prevent browser GC
-        const silentSink = ctx.createGain();
-        silentSink.gain.value = 0;
-        processorRef.current.connect(silentSink);
-        silentSink.connect(ctx.destination);
+        processorRef.current.connect(ctx.createGain()); // silent sink — avoids feedback
     }, []);
 
     const startSession = useCallback(async () => {
@@ -279,48 +229,41 @@ export function useGeminiLive({
             setError(null);
             setIsConnecting(true);
             isBufferingRef.current = true;
-            accumulatedAiTextRef.current = "";
 
             const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
             if (!apiKey) throw new Error("Gemini API Key missing.");
 
-            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+            if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
 
-            // 1. Output Audio Context (24 kHz)
-            outputAudioContextRef.current = new AudioCtx({ sampleRate: OUTPUT_SAMPLE_RATE });
-            if (outputAudioContextRef.current.state === "suspended") {
-                await outputAudioContextRef.current.resume();
-            }
-
-            outputGainRef.current = outputAudioContextRef.current.createGain();
+            // ── Output audio processing chain (AI voice playback) ─────────────
+            // GainNode: slight boost so AI voice is clearly audible
+            outputGainRef.current = audioContextRef.current.createGain();
             outputGainRef.current.gain.value = 1.4;
 
-            outputCompressorRef.current = outputAudioContextRef.current.createDynamicsCompressor();
+            // Compressor: prevents clipping on loud AI responses, makes voice even
+            outputCompressorRef.current = audioContextRef.current.createDynamicsCompressor();
             outputCompressorRef.current.threshold.value = -18;
             outputCompressorRef.current.knee.value = 6;
             outputCompressorRef.current.ratio.value = 3;
             outputCompressorRef.current.attack.value = 0.002;
             outputCompressorRef.current.release.value = 0.2;
 
+            // Wire: gain → compressor → speakers
             outputGainRef.current.connect(outputCompressorRef.current);
-            outputCompressorRef.current.connect(outputAudioContextRef.current.destination);
+            outputCompressorRef.current.connect(audioContextRef.current.destination);
 
-            // 2. Input Audio Context (16 kHz)
-            inputAudioContextRef.current = new AudioCtx({ sampleRate: INPUT_SAMPLE_RATE });
-            if (inputAudioContextRef.current.state === "suspended") {
-                await inputAudioContextRef.current.resume();
-            }
-
-            // Capture microphone
+            // Better microphone capture: echo cancel, noise suppress, auto gain
             streamRef.current = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true,
-                    channelCount: 1,
-                    sampleRate: INPUT_SAMPLE_RATE,
+                    channelCount: 1,        // mono — all we need for STT
+                    sampleRate: SAMPLE_RATE,
                 }
             });
+            const ai = new GoogleGenAI({ apiKey });
 
             const sanitize = (text: string) =>
                 text?.replace(/[<>{}[\]]/g, "").slice(0, 1000) ?? "Not provided";
@@ -441,16 +384,12 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
 - When closing, always end with exactly: "That's all the time we have, ${sanitize(interviewDetails.username)}. Really appreciate your time today — we'll be in touch."
 `;
 
-            const ai = new GoogleGenAI({ apiKey });
-
             const sessionPromise = ai.live.connect({
                 model: "gemini-3.1-flash-live-preview",
                 config: {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } },
-                    systemInstruction: {
-                        parts: [{ text: systemInstruction }]
-                    },
+                    systemInstruction,
                     outputAudioTranscription: {},
                     inputAudioTranscription: {},
                 },
@@ -459,62 +398,53 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                         setIsActive(true);
                         setIsConnecting(false);
                         nextStartTimeRef.current = 0;
-                        startMicStreaming();
-                        sessionRef.current?.sendRealtimeInput({
-                            text: "[SYSTEM: Begin the interview now. Greet the candidate warmly by name, introduce yourself as Neura, and ask if they are ready to begin.]"
+                        startMicStreaming(sessionPromise);
+                        sessionPromise.then((session) => {
+                            session.sendRealtimeInput({ text: "[SYSTEM: Begin the interview now. Greet the candidate warmly by name, introduce yourself as Neura, and ask if they are ready to begin.]" });
                         });
                     },
                     onmessage: async (message: LiveServerMessage) => {
-                        const content = message.serverContent;
                         const msg = message as any;
 
-                        // 1. Process User Transcriptions (Final & Interim)
-                        if (content?.inputTranscription) {
-                            onUserTranscriptionRef.current?.({
-                                ...content.inputTranscription,
-                                text: content.inputTranscription.text ?? "",
-                                interim: false
-                            });
-                        } else if ((content as any)?.interimInputTranscription) {
-                            onUserTranscriptionRef.current?.({
-                                ...(content as any).interimInputTranscription,
-                                text: (content as any).interimInputTranscription.text ?? "",
-                                interim: true
-                            });
+                        if (message.serverContent?.inputTranscription) {
+                            const t = message.serverContent.inputTranscription;
+                            const isFinal = (t as any).isFinal ?? (t as any).is_final ?? true;
+                            console.log(`[STT] input transcription (final=${isFinal}):`, t.text);
+                            // Only forward FINAL transcriptions — interim ones are noisy/inaccurate
+                            if (isFinal) {
+                                onUserTranscriptionRef.current?.(t);
+                            } else {
+                                // Show interim text in the UI only (don't send to AI)
+                                onUserTranscriptionRef.current?.({ ...t, interim: true });
+                            }
                         } else if (msg.inputAudioTranscription) {
-                            const isFinal = msg.inputAudioTranscription.isFinal ?? msg.inputAudioTranscription.is_final ?? true;
-                            onUserTranscriptionRef.current?.({
-                                ...msg.inputAudioTranscription,
-                                interim: !isFinal
-                            });
+                            const t = msg.inputAudioTranscription;
+                            const isFinal = t.isFinal ?? t.is_final ?? true;
+                            if (isFinal) {
+                                onUserTranscriptionRef.current?.(t);
+                            }
                         }
 
-                        // 2. Process AI Text Transcriptions (Streaming Fragment Accumulator)
-                        const outputTranscription = content?.outputTranscription || msg.outputAudioTranscription;
+                        const outputTranscription = message.serverContent?.outputTranscription || msg.outputAudioTranscription;
                         if (outputTranscription) {
-                            const aiChunk = outputTranscription.text || (typeof outputTranscription === "string" ? outputTranscription : "");
-                            if (aiChunk) {
-                                accumulatedAiTextRef.current += aiChunk;
-                                onMessageRef.current?.(aiChunk);
-
-                                if (accumulatedAiTextRef.current.toLowerCase().includes("interview is completed")) {
-                                    setIsInterviewCompletedRef.current?.(true);
+                            const aiText = outputTranscription.text || (typeof outputTranscription === 'string' ? outputTranscription : '');
+                            if (aiText) {
+                                onMessageRef.current?.(aiText);
+                                if (aiText.toLowerCase().includes("interview is completed")) {
+                                    setIsInterviewCompletedRef.current(true);
                                 }
                             }
                         }
 
-                        // 3. Process AI Output Audio Chunks
-                        if (content?.modelTurn?.parts) {
-                            for (const part of content.modelTurn.parts) {
+                        if (message.serverContent?.modelTurn?.parts) {
+                            for (const part of message.serverContent.modelTurn.parts) {
                                 if (part.inlineData?.data) {
                                     const binaryString = atob(part.inlineData.data);
-                                    const len = binaryString.length;
-                                    const bytes = new Uint8Array(len);
-                                    for (let i = 0; i < len; i++) {
-                                        bytes[i] = binaryString.charCodeAt(i);
+                                    const bytes = new Int16Array(binaryString.length / 2);
+                                    for (let i = 0; i < bytes.length; i++) {
+                                        bytes[i] = (binaryString.charCodeAt(i * 2) & 0xFF) | (binaryString.charCodeAt(i * 2 + 1) << 8);
                                     }
-                                    const pcm16 = new Int16Array(bytes.buffer);
-                                    audioQueueRef.current.push(pcm16);
+                                    audioQueueRef.current.push(bytes);
 
                                     if (isBufferingRef.current && audioQueueRef.current.length >= JITTER_BUFFER_SIZE) {
                                         isBufferingRef.current = false;
@@ -526,30 +456,20 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                             }
                         }
 
-                        // 4. Handle Interruption (User Barge-in)
-                        if (content?.interrupted) {
+                        if (message.serverContent?.interrupted) {
                             console.log("[useGeminiLive] SERVER INTERRUPT RECEIVED");
-                            accumulatedAiTextRef.current = "";
                             stopAudioPlayback();
                             onInterruptRef.current?.();
                         }
-
-                        // 5. Turn Complete
-                        if (content?.turnComplete) {
-                            accumulatedAiTextRef.current = "";
-                        }
                     },
                     onclose: () => stopSession(),
-                    onerror: () => {
-                        setError("Connection error.");
-                        stopSession();
-                    }
+                    onerror: () => { setError("Connection error."); stopSession(); }
                 }
             });
 
             sessionRef.current = await sessionPromise;
         } catch (err: any) {
-            setError(err.message || "Failed to start session");
+            setError(err.message);
             setIsConnecting(false);
             stopSession();
         }
