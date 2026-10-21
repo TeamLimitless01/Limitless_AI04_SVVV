@@ -24,6 +24,7 @@ export function useGeminiLive({
     const streamRef = useRef<MediaStream | null>(null);
     const processorRef = useRef<ScriptProcessorNode | null>(null);
     const sessionRef = useRef<any>(null);
+    const isSessionClosingRef = useRef(false);
     const audioQueueRef = useRef<Int16Array[]>([]);
     const nextStartTimeRef = useRef<number>(0);
     const isPlayingRef = useRef(false);
@@ -116,6 +117,7 @@ export function useGeminiLive({
 
     const stopSession = useCallback(() => {
         console.log("[useGeminiLive] Stopping Session...");
+        isSessionClosingRef.current = true;
         stopAudioPlayback();
         setIsActive(false);
         setIsConnecting(false);
@@ -186,19 +188,23 @@ export function useGeminiLive({
         processorRef.current.connect(audioContextRef.current.destination);
     }, []);
 
-    const startSession = useCallback(async () => {
+    const startSession = useCallback(async (audioStream: MediaStream) => {
         try {
             setError(null);
             setIsConnecting(true);
+            isSessionClosingRef.current = false;
             isBufferingRef.current = true;
 
             const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
             if (!apiKey) throw new Error("Gemini API Key missing.");
 
+            if (!audioStream.getAudioTracks().length) {
+                throw new Error("Microphone access is required to start the audio interview.");
+            }
+            streamRef.current = audioStream;
             audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-            if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
+            if (audioContextRef.current.state === "suspended") await audioContextRef.current.resume();
 
-            streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
             const ai = new GoogleGenAI({ apiKey });
 
             const sanitize = (text: string) =>
@@ -336,11 +342,13 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                         nextStartTimeRef.current = 0;
                         startMicStreaming(sessionPromise);
                         sessionPromise.then((session) => {
-                            session.sendRealtimeInput({ text: "[SYSTEM: Begin the interview now. Greet the candidate warmly by name, introduce yourself as Neura, and ask if they are ready to begin.]" });
+                            const openingPrompt = "[SYSTEM: Begin the interview now. Greet the candidate warmly by name, introduce yourself as Neura, and ask if they are ready to begin.]";
+                            session.sendRealtimeInput({ text: openingPrompt });
                         });
                     },
                     onmessage: async (message: LiveServerMessage) => {
                         const msg = message as any;
+                        const parts = message.serverContent?.modelTurn?.parts ?? [];
 
                         if (message.serverContent?.inputTranscription) {
                             onUserTranscriptionRef.current?.(message.serverContent.inputTranscription);
@@ -348,7 +356,8 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                             onUserTranscriptionRef.current?.(msg.inputAudioTranscription);
                         }
 
-                        const outputTranscription = message.serverContent?.outputTranscription || msg.outputAudioTranscription;
+                        const outputTranscription =
+                            message.serverContent?.outputTranscription || msg.outputAudioTranscription;
                         if (outputTranscription) {
                             const aiText = outputTranscription.text || (typeof outputTranscription === 'string' ? outputTranscription : '');
                             if (aiText) {
@@ -359,22 +368,20 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                             }
                         }
 
-                        if (message.serverContent?.modelTurn?.parts) {
-                            for (const part of message.serverContent.modelTurn.parts) {
-                                if (part.inlineData?.data) {
-                                    const binaryString = atob(part.inlineData.data);
-                                    const bytes = new Int16Array(binaryString.length / 2);
-                                    for (let i = 0; i < bytes.length; i++) {
-                                        bytes[i] = (binaryString.charCodeAt(i * 2) & 0xFF) | (binaryString.charCodeAt(i * 2 + 1) << 8);
-                                    }
-                                    audioQueueRef.current.push(bytes);
+                        for (const part of parts) {
+                            if (part.inlineData?.data) {
+                                const binaryString = atob(part.inlineData.data);
+                                const bytes = new Int16Array(binaryString.length / 2);
+                                for (let i = 0; i < bytes.length; i++) {
+                                    bytes[i] = (binaryString.charCodeAt(i * 2) & 0xFF) | (binaryString.charCodeAt(i * 2 + 1) << 8);
+                                }
+                                audioQueueRef.current.push(bytes);
 
-                                    if (isBufferingRef.current && audioQueueRef.current.length >= JITTER_BUFFER_SIZE) {
-                                        isBufferingRef.current = false;
-                                        if (!isPlayingRef.current) playNextInQueue();
-                                    } else if (!isBufferingRef.current && !isPlayingRef.current) {
-                                        playNextInQueue();
-                                    }
+                                if (isBufferingRef.current && audioQueueRef.current.length >= JITTER_BUFFER_SIZE) {
+                                    isBufferingRef.current = false;
+                                    if (!isPlayingRef.current) playNextInQueue();
+                                } else if (!isBufferingRef.current && !isPlayingRef.current) {
+                                    playNextInQueue();
                                 }
                             }
                         }
@@ -385,8 +392,19 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                             onInterruptRef.current?.();
                         }
                     },
-                    onclose: () => stopSession(),
-                    onerror: () => { setError("Connection error."); stopSession(); }
+                    onclose: (event) => {
+                        if (!isSessionClosingRef.current) {
+                            const detail = event.reason || `code ${event.code}`;
+                            setError(`Interview connection closed (${detail}).`);
+                        }
+                        stopSession();
+                    },
+                    onerror: (event) => {
+                        if (!isSessionClosingRef.current) {
+                            setError(event.message || "Connection error.");
+                        }
+                        stopSession();
+                    }
                 }
             });
 
@@ -395,6 +413,7 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
             setError(err.message);
             setIsConnecting(false);
             stopSession();
+            throw err;
         }
     }, [interviewDetails, startMicStreaming, playNextInQueue, stopSession, stopAudioPlayback]);
 
@@ -410,6 +429,5 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
         startSession,
         sendSystemMessage,
         stopSession,
-        session: sessionRef.current
     };
 }

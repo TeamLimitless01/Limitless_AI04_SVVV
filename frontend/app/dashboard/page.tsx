@@ -267,7 +267,7 @@ export default function DashboardPage() {
                     >
                       <div className="glass-card p-6 rounded-3xl border-white/5 hover:bg-white/[0.03] transition-all group flex items-center justify-between gap-6 cursor-pointer" onClick={() => (window.location.href = "/reports")}>
                         <div className="flex items-center gap-5">
-                          <div className={`h-12 w-12 rounded-2xl flex items-center justify-center font-black ${r.recommendation === 'Yes' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                          <div className="h-12 w-12 rounded-2xl flex items-center justify-center font-black bg-blue-500/10 text-blue-400">
                             {r.overallScore}
                           </div>
                           <div>
@@ -277,8 +277,8 @@ export default function DashboardPage() {
                         </div>
                         <div className="hidden sm:flex flex-col items-end">
                           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{r.date}</p>
-                          <div className={`flex items-center gap-1 text-[10px] font-bold ${r.recommendation === 'Yes' ? 'text-emerald-500' : 'text-rose-500'}`}>
-                            {r.recommendation === 'Yes' ? 'HIRE' : 'REVIEW'}
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-blue-400">
+                          SCORE
                             <ArrowUpRight className="h-2 w-2" />
                           </div>
                         </div>

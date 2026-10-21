@@ -45,12 +45,15 @@ export async function GET(
       }
 
       const scores = reportObj.scores || {};
+      if (typeof scores.overall !== "number" || !Number.isFinite(scores.overall)) {
+        continue;
+      }
 
       reportCount++;
       avgOverall += (scores.overall || 0);
       avgCommunication += (scores.communication || 0);
 
-      sumTech += (scores.technicalKnowledge || 0);
+      sumTech += (scores.roleKnowledge ?? scores.technicalKnowledge ?? 0);
       sumComm += (scores.communication || 0);
       sumProb += (scores.problemSolving || 0);
 
@@ -65,7 +68,6 @@ export async function GET(
           id: itv._id.toString(),
           candidateName: itv.candidateName || "Candidate",
           jobRole: itv.details || "General",
-          recommendation: (scores.potentialFit || 0) >= 7 ? 'Yes' : 'No',
           overallScore: scores.overall || 0,
           date: dateKey
         });
@@ -85,7 +87,7 @@ export async function GET(
     trendData.reverse();
 
     const categoryStats = reportCount > 0 ? [
-      { category: "Technical", avgScore: parseFloat((sumTech / reportCount).toFixed(1)) },
+      { category: "Role Knowledge", avgScore: parseFloat((sumTech / reportCount).toFixed(1)) },
       { category: "Comm", avgScore: parseFloat((sumComm / reportCount).toFixed(1)) },
       { category: "Problem Solving", avgScore: parseFloat((sumProb / reportCount).toFixed(1)) },
     ] : [];

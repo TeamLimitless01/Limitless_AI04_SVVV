@@ -25,24 +25,20 @@ const VideoPreview = memo(function VideoPreview({
       send: (input: { image: HTMLVideoElement }) => Promise<void>;
       close: () => void;
     };
-    let camera: { start: () => Promise<void>; stop: () => void } | null = null;
+    let stream: MediaStream | null = null;
     let faceMesh: FaceMeshInstance | null = null;
+    let animationFrameId: number | null = null;
+    let lastFrameTime = 0;
+    let processingFrame = false;
+    let detectionFailed = false;
 
     const startCamera = async () => {
       try {
         const mediaPipe = window as typeof window & {
           FaceMesh?: new (options: { locateFile: (file: string) => string }) => FaceMeshInstance;
-          Camera?: new (
-            video: HTMLVideoElement,
-            options: {
-              onFrame: () => Promise<void>;
-              width: number;
-              height: number;
-            }
-          ) => { start: () => Promise<void>; stop: () => void };
         };
 
-        if (!mediaPipe.FaceMesh || !mediaPipe.Camera) {
+        if (!mediaPipe.FaceMesh) {
           throw new Error("Camera detection is unavailable. Please refresh and try again.");
         }
 
@@ -59,32 +55,61 @@ const VideoPreview = memo(function VideoPreview({
         let lastPresence: boolean | null = null;
         faceMesh.onResults((results) => {
           const detected = Boolean(results.multiFaceLandmarks?.length);
-          if (detected !== lastPresence) {
+          if (!cancelled && detected !== lastPresence) {
             lastPresence = detected;
             setPersonDetected(detected);
           }
         });
 
-        camera = new mediaPipe.Camera(video, {
-          onFrame: async () => {
-            if (faceMesh && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-              await faceMesh.send({ image: video });
-            }
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: "user",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
           },
-          width: 1280,
-          height: 720,
         });
 
-        await camera.start();
         if (cancelled) {
-          camera.stop();
+          stream.getTracks().forEach((track) => track.stop());
           faceMesh.close();
           return;
         }
+
+        video.srcObject = stream;
+        await video.play();
+        if (cancelled) return;
         setRunning(true);
+
+        const processFrame = (timestamp: number) => {
+          if (cancelled || detectionFailed) return;
+          if (
+            faceMesh &&
+            !processingFrame &&
+            video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+            timestamp - lastFrameTime >= 200
+          ) {
+            lastFrameTime = timestamp;
+            processingFrame = true;
+            void faceMesh
+              .send({ image: video })
+              .catch((error) => {
+                if (cancelled) return;
+                detectionFailed = true;
+                console.error("Camera person detection failed", error);
+                setCameraError("Person detection failed. Please turn the camera off and try again.");
+              })
+              .finally(() => {
+                processingFrame = false;
+              });
+          }
+          animationFrameId = requestAnimationFrame(processFrame);
+        };
+
+        animationFrameId = requestAnimationFrame(processFrame);
       } catch (error) {
         if (cancelled) return;
-        camera?.stop();
+        stream?.getTracks().forEach((track) => track.stop());
         faceMesh?.close();
         console.error("Camera access failed", error);
         setCameraError(
@@ -97,7 +122,8 @@ const VideoPreview = memo(function VideoPreview({
 
     return () => {
       cancelled = true;
-      camera?.stop();
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+      stream?.getTracks().forEach((track) => track.stop());
       faceMesh?.close();
       video.srcObject = null;
     };

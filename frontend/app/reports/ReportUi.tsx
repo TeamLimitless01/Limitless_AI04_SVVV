@@ -24,15 +24,15 @@ export default function InterviewReport({ report }: { report?: any }) {
   const scores = data.scores || {};
   
   const scoreBars = [
-    { name: "Technical", value: scores.technicalKnowledge || 0, color: "blue" },
-    { name: "Communication", value: scores.communication || 0, color: "emerald" },
-    { name: "Problem Solving", value: scores.problemSolving || 0, color: "amber" },
+    { name: "Role Knowledge", value: scores.roleKnowledge ?? scores.technicalKnowledge ?? 0, scored: (scores.roleKnowledge ?? scores.technicalKnowledge) != null, color: "blue" },
+    { name: "Communication", value: scores.communication ?? 0, scored: scores.communication != null, color: "emerald" },
+    { name: "Problem Solving", value: scores.problemSolving ?? 0, scored: scores.problemSolving != null, color: "amber" },
   ];
 
   const radarData = [
-    { subject: "Technical", A: scores.technicalKnowledge || 0, fullMark: 10 },
-    { subject: "Communication", A: scores.communication || 0, fullMark: 10 },
-    { subject: "Problem Solving", A: scores.problemSolving || 0, fullMark: 10 },
+    { subject: "Role Knowledge", A: scores.roleKnowledge ?? scores.technicalKnowledge ?? 0, fullMark: 10 },
+    { subject: "Communication", A: scores.communication ?? 0, fullMark: 10 },
+    { subject: "Problem Solving", A: scores.problemSolving ?? 0, fullMark: 10 },
   ];
 
   const formatName = (s: any) =>
@@ -42,6 +42,17 @@ export default function InterviewReport({ report }: { report?: any }) {
   const answerAnalysis = data.answerAnalysis || { strengths: [], weaknesses: [], insights: [] };
   const overallPerformance = data.overallPerformance || {};
   const summaryAndNextSteps = data.summaryAndNextSteps || { rationale: [], actionableNextSteps: [] };
+  const scorecard = data.scorecard;
+  const scorecardMetrics = scorecard?.metrics
+    ? [
+        { id: "roleKnowledge", label: "Role knowledge and application", weight: 40 },
+        { id: "problemSolving", label: "Reasoning and problem solving", weight: 35 },
+        { id: "communication", label: "Communication and clarity", weight: 25 },
+      ]
+    : [];
+  const hasCompleteScorecard = scorecardMetrics.every(
+    (metric) => scorecard.metrics[metric.id].rating != null
+  );
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -92,7 +103,7 @@ export default function InterviewReport({ report }: { report?: any }) {
               <span className="text-xs font-black uppercase tracking-widest text-slate-500">Overall Score</span>
             </div>
             <h3 className="text-3xl font-black text-white mb-1">
-              {scores.overall || 0}<span className="text-lg text-slate-500 font-bold">/10</span>
+              {scores.overall == null ? "Not scored" : scores.overall}<span className="text-lg text-slate-500 font-bold">{scores.overall == null ? "" : "/10"}</span>
             </h3>
             <p className="text-sm text-slate-400 font-medium line-clamp-1">{overallPerformance.summary || 'Performance evaluation completed.'}</p>
           </motion.div>
@@ -227,26 +238,35 @@ export default function InterviewReport({ report }: { report?: any }) {
 
           {/* Sidebar Area: Visual Metrics */}
           <div className="space-y-8">
-            <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8">
-              <h3 className="text-xl font-bold text-white mb-8 tracking-tight">Competency Radar</h3>
-              <div className="h-64 relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                    <PolarGrid stroke="#ffffff10" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
-                    <Radar
-                      name="Score"
-                      dataKey="A"
-                      stroke="#3b82f6"
-                      fill="#3b82f6"
-                      fillOpacity={0.3}
-                    />
-                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#ffffff10', borderRadius: '12px' }} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-            </motion.section>
+            {hasCompleteScorecard ? (
+              <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8">
+                <h3 className="text-xl font-bold text-white mb-8 tracking-tight">Competency Radar</h3>
+                <div className="h-64 relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                      <PolarGrid stroke="#ffffff10" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
+                      <Radar
+                        name="Score"
+                        dataKey="A"
+                        stroke="#3b82f6"
+                        fill="#3b82f6"
+                        fillOpacity={0.3}
+                      />
+                      <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#ffffff10', borderRadius: '12px' }} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </motion.section>
+            ) : (
+              <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8">
+                <h3 className="text-xl font-bold text-white mb-3 tracking-tight">Competency Radar</h3>
+                <p className="text-sm leading-relaxed text-slate-500">
+                  The radar is hidden because one or more metrics were not assessable from the transcript.
+                </p>
+              </motion.section>
+            )}
 
             <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8">
               <h3 className="text-xl font-bold text-white mb-6 tracking-tight">Metric Distribution</h3>
@@ -255,7 +275,7 @@ export default function InterviewReport({ report }: { report?: any }) {
                   <div key={s.name}>
                     <div className="flex justify-between text-xs font-black uppercase tracking-widest mb-2">
                       <span className="text-slate-500">{s.name}</span>
-                      <span className="text-white">{s.value}/10</span>
+                      <span className="text-white">{s.scored ? `${s.value}/10` : "Not assessed"}</span>
                     </div>
                     <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
                       <motion.div 
@@ -273,6 +293,55 @@ export default function InterviewReport({ report }: { report?: any }) {
                 ))}
               </div>
             </motion.section>
+
+            {scorecardMetrics.length > 0 && (
+              <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8">
+                <h3 className="text-xl font-bold text-white mb-2 tracking-tight">Evidence-Based Scorecard</h3>
+                <p className="text-xs leading-relaxed text-slate-500 mb-6">
+                  Rubric {scorecard.rubricVersion}: ratings use transcript evidence; the overall score is calculated from the listed weights.
+                </p>
+                <p className="text-xs text-slate-400 mb-6">
+                  Evidence coverage: {scorecard.assessedMetricCount}/{scorecard.totalMetricCount} metrics assessed.
+                </p>
+                <div className="space-y-6">
+                  {scorecardMetrics.map((metric) => {
+                    const assessment = scorecard.metrics[metric.id];
+                    return (
+                      <div key={metric.id} className="border-t border-white/5 pt-4 first:border-0 first:pt-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-200">{metric.label}</h4>
+                            <p className="text-xs text-slate-500">Weight: {metric.weight}%</p>
+                          </div>
+                          <span className="shrink-0 text-sm font-bold text-white">
+                            {assessment.rating == null ? "Not assessed" : `${assessment.rating}/4`}
+                          </span>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {assessment.evidence.map((evidence: { messageIndex: number; quote: string }, index: number) => (
+                            <blockquote
+                              key={`${metric.id}-${evidence.messageIndex}-${index}`}
+                              className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs leading-relaxed text-slate-400"
+                            >
+                              “{evidence.quote}”
+                              <footer className="mt-1 text-[10px] uppercase tracking-wider text-slate-600">
+                                Transcript message {evidence.messageIndex + 1}
+                              </footer>
+                            </blockquote>
+                          ))}
+                          {assessment.rating == null && (
+                            <p className="text-xs italic text-slate-500">Insufficient transcript evidence to assess this metric.</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-6 border-t border-white/5 pt-4 text-[11px] leading-relaxed text-slate-500">
+                  This scorecard summarizes interview evidence and is not a hiring decision.
+                </p>
+              </motion.section>
+            )}
 
           </div>
         </div>

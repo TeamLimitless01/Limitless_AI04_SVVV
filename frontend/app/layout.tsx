@@ -75,7 +75,6 @@ export default async function RootLayout({
       </head>
       
       <body className="font-sans scroll no-scrollbar relative min-h-screen">
-        <Script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" />
         <Script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" />
         <Script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" />
         <Script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" />

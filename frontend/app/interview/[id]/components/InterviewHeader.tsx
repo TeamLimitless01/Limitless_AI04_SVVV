@@ -3,13 +3,9 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 
 interface InterviewHeaderProps {
   id: string;
-  speechEnabled: boolean;
-  setSpeechEnabled: (v: boolean) => void;
   status?: "connecting" | "active" | "idle";
   interviewTitle?: string;
 }
@@ -43,7 +39,7 @@ const ConnectionDot = ({ status }: { status: "connecting" | "active" | "idle" })
 };
 
 const InterviewHeader = memo(
-  ({ id, speechEnabled, setSpeechEnabled, status = "idle", interviewTitle }: InterviewHeaderProps) => {
+  ({ id, status = "idle", interviewTitle }: InterviewHeaderProps) => {
     return (
       <motion.header
         initial={{ y: -20, opacity: 0 }}
@@ -75,23 +71,6 @@ const InterviewHeader = memo(
           </div>
         </div>
 
-        {/* Right: AI Voice toggle */}
-        <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
-          <div className="flex items-center gap-2 px-2.5 md:px-3 py-1.5 md:py-2 rounded-xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.07] transition-all group cursor-pointer">
-            <Label
-              htmlFor="speech-mode-header"
-              className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-white/30 group-hover:text-white/50 transition-colors cursor-pointer hidden sm:block"
-            >
-              AI Voice
-            </Label>
-            <Switch
-              id="speech-mode-header"
-              checked={speechEnabled}
-              onCheckedChange={setSpeechEnabled}
-              className="scale-75 md:scale-90"
-            />
-          </div>
-        </div>
       </motion.header>
     );
   }

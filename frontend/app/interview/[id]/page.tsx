@@ -16,7 +16,6 @@ import InterviewHeader from "./components/InterviewHeader";
 import AIInterviewerStage from "./components/AIInterviewerStage";
 import BottomToolbar from "./components/BottomToolbar";
 import SidePanel from "./components/SidePanel";
-import InterviewControls from "@/components/interview-controls";
 
 type Message = { role: "assistant" | "user"; content: string; id?: string };
 
@@ -30,13 +29,9 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isInterviewCompleted, setIsInterviewCompleted] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
-  const [mode, setMode] = useState<"voice" | "text">("voice");
   const [listening, setListening] = useState(false);
-  const [text, setText] = useState("");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [volume, setVolume] = useState(0);
-  const [speechEnabled, setSpeechEnabled] = useState(true);
-  const [delayedAiSpeaking, setDelayedAiSpeaking] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [hasAutoSubmitted, setHasAutoSubmitted] = useState(false);
   const [showStartModal, setShowStartModal] = useState(true);
@@ -104,8 +99,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const onUserTranscription = useCallback(
     (transcription: any) => {
       console.log("[InterviewPage] User Transcription Recv:", transcription);
-      if (mode === "voice" && transcription.text) {
-        setText(transcription.text);
+      if (transcription.text) {
         setMessages((prev: any) => {
           const lastMessage = prev[prev.length - 1];
           if (lastMessage?.role === "user" && lastMessage.id === userTranscriptMsgId.current) {
@@ -120,7 +114,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
         });
       }
     },
-    [mode]
+    []
   );
 
   const {
@@ -130,7 +124,6 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     startSession,
     sendSystemMessage,
     stopSession,
-    session,
   } = useGeminiLive({
     interviewDetails,
     onMessage,
@@ -143,20 +136,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   });
 
   useEffect(() => {
-    if (isActive) setListening(true);
-  }, [isActive]);
-
-  useEffect(() => {
     if (aiSpeaking) userTranscriptMsgId.current = null;
-  }, [aiSpeaking]);
-
-  useEffect(() => {
-    if (aiSpeaking) {
-      setDelayedAiSpeaking(true);
-    } else {
-      const timer = setTimeout(() => setDelayedAiSpeaking(false), 500);
-      return () => clearTimeout(timer);
-    }
   }, [aiSpeaking]);
 
   useEffect(() => {
@@ -173,22 +153,29 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     return () => clearInterval(timer);
   }, [showStartModal, isInterviewCompleted, timeLeft]);
 
-  const startInterview = useCallback(() => {
-    setListening(true);
-    startSession();
-    setShowStartModal(false);
+  const startInterview = useCallback(async (audioStream: MediaStream) => {
+    try {
+      await startSession(audioStream);
+      setListening(true);
+      setShowStartModal(false);
+    } catch (error) {
+      audioStream?.getTracks().forEach((track) => track.stop());
+      throw error;
+    }
   }, [startSession]);
 
-  const handleSend = useCallback(
-    async (c: string) => {
-      if (session) {
-        if (mode === "text") session.send({ text: c });
-        setMessages((prev: any) => [...prev, { role: "user", content: c, id: crypto.randomUUID() }]);
-      }
-      setText("");
-    },
-    [session, mode]
-  );
+  const reconnectAudioInterview = useCallback(async () => {
+    let audioStream: MediaStream | undefined;
+    try {
+      audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      await startSession(audioStream);
+      audioStream = undefined;
+      setListening(true);
+    } catch (error) {
+      audioStream?.getTracks().forEach((track) => track.stop());
+      toast.error(error instanceof Error ? error.message : "Could not reconnect to the interview.");
+    }
+  }, [startSession]);
 
   // Tab-switch detection
   useEffect(() => {
@@ -271,14 +258,18 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
           tabSwitchCount: tabSwitchCount,
         }),
       });
-      if (!res.ok) throw new Error("Failed to generate report");
       const report = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          typeof report?.error === "string" ? report.error : "Failed to generate report."
+        );
+      }
       if (report) await strapi.update("interviews", params.id, { report: JSON.stringify(report) });
       toast.success("Report generated!");
       router.push(`/reports?interviewId=${params.id}`);
     } catch (err) {
       console.error(err);
-      toast.error("Could not generate report");
+      toast.error(err instanceof Error ? err.message : "Could not generate report.");
     } finally {
       setIsGeneratingReport(false);
     }
@@ -346,8 +337,6 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
         {/* ── TOP BAR ──────────────────────────────────────────────────── */}
         <InterviewHeader
           id={params.id}
-          speechEnabled={speechEnabled}
-          setSpeechEnabled={setSpeechEnabled}
           status={isActive ? "active" : isConnecting ? "connecting" : "idle"}
           interviewTitle={interviewDetails.topic ? `${interviewDetails.topic} Interview` : "Interview Session"}
         />
@@ -441,31 +430,21 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
               </AnimatePresence>
             </div>
 
-            {/* ── Controls area (shown below stage) ────────────────────
-                Voice/text controls in voice mode; hidden in liveActive state
-                for mode-switching only (mic is in toolbar)
-            ─────────────────────────────────────────────────────────── */}
-            {isActive && !isInterviewCompleted && mode === "text" && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="px-2 pb-1"
-              >
-                <InterviewControls
-                  aiSpeaking={delayedAiSpeaking}
-                  mode={mode}
-                  listening={listening}
-                  text={text}
-                  setMode={setMode}
-                  interviewLanguage={interviewDetails.interviewLanguage || "english"}
-                  setListening={setListening}
-                  setText={setText}
-                  handleSend={handleSend}
-                  liveActive={isActive}
-                  volume={volume}
-                  stopSession={stopSession}
-                />
-              </motion.div>
+            {/* ── Connection error ──────────────────────────────────── */}
+            {liveError && !showStartModal && !isInterviewCompleted && (
+              <div className="px-2">
+                <div role="alert" className="mb-2 flex items-center justify-between gap-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+                  <span>Interview connection failed: {liveError}</span>
+                  <button
+                    type="button"
+                    onClick={reconnectAudioInterview}
+                    disabled={isConnecting}
+                    className="shrink-0 rounded-lg border border-red-300/20 px-3 py-1.5 font-semibold hover:bg-red-500/10 disabled:opacity-50"
+                  >
+                    {isConnecting ? "Reconnecting..." : "Reconnect"}
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* ── BOTTOM TOOLBAR ─────────────────────────────────────── */}
