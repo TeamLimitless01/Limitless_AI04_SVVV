@@ -47,7 +47,7 @@ export default function RoadmapForm( {getRoadmap, formData, setFormData}: {  get
     }
 
     return (
-        <div className=" bg-gradient-to-br  flex items-center justify-center mt-20 p-4">
+        <div className="relative mt-14 flex min-h-[calc(100vh-3.5rem)] items-center justify-center overflow-hidden bg-gradient-to-br p-3 sm:mt-20 sm:p-4">
             {/* Background blur effect */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
@@ -61,11 +61,11 @@ export default function RoadmapForm( {getRoadmap, formData, setFormData}: {  get
                 animate="visible"
             >
                 {/* Header */}
-                <motion.div  className="mb-12 text-center">
-                    <h1 className="text-5xl font-bold text-white mb-3 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                <motion.div className="mb-8 text-center sm:mb-12">
+                    <h1 className="mb-3 break-words bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-3xl font-bold text-transparent sm:text-4xl md:text-5xl">
                         Roadmap Generator   
                     </h1>
-                    <p className="text-lg text-slate-400">
+                    <p className="text-base text-slate-400 sm:text-lg">
                         Share your job role and skills and let&apos;s generate a roadmap for you
                     </p>
                 </motion.div>
@@ -73,7 +73,7 @@ export default function RoadmapForm( {getRoadmap, formData, setFormData}: {  get
                 {/* Form Card */}
                 <motion.form
                     onSubmit={handleSubmit}
-                    className="backdrop-blur-xl bg-slate-800/50 border border-slate-700/50 rounded-2xl p-8 shadow-2xl"
+                    className="rounded-2xl border border-slate-700/50 bg-slate-800/50 p-4 shadow-2xl backdrop-blur-xl sm:p-6 md:p-8"
                 >
                     {/* Job Role Field */}
                     <motion.div  className="mb-8">

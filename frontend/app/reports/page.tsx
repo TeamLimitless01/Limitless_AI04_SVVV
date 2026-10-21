@@ -241,8 +241,8 @@ function ReportsContent() {
         <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-purple-600/5 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 py-32 md:py-40">
-        <header className="mb-20 text-center">
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-3 py-20 sm:px-6 sm:py-28 md:py-40">
+        <header className="mb-10 text-center sm:mb-16 md:mb-20">
           {/* <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -251,10 +251,10 @@ function ReportsContent() {
             <Sparkles className="h-3.5 w-3.5" />
             <span>Review Your Journey</span>
           </motion.div> */}
-          <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-tighter">
+          <h1 className="mb-4 text-4xl font-black tracking-tighter text-white sm:mb-6 sm:text-5xl md:text-7xl">
             Interview <span className="text-gradient">Insights</span>
           </h1>
-          <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+          <p className="mx-auto max-w-2xl text-base leading-relaxed text-slate-400 sm:text-lg md:text-xl">
             Every session is a step toward perfection. Analyze your performance data
             and technical depth through AI-conducted session reports.
           </p>
@@ -266,16 +266,16 @@ function ReportsContent() {
               key="empty"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-center py-32 glass-card rounded-[3rem] border-white/5"
+              className="glass-card rounded-3xl border-white/5 px-4 py-20 text-center sm:rounded-[3rem] sm:px-8 sm:py-32"
             >
               <FileText className="h-16 w-16 text-slate-600 mx-auto mb-6 opacity-20" />
-              <p className="text-slate-400 text-xl font-medium">No experience reports found yet.</p>
+              <p className="text-base font-medium text-slate-400 sm:text-xl">No experience reports found yet.</p>
               <Button onClick={() => router.push('/create-interview')} className="mt-8 h-12 rounded-2xl bg-blue-600 hover:bg-blue-500 font-bold px-8">
                 Conduct Your First Session
               </Button>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:gap-8">
               {interviews.map((interview, idx) => (
                 <motion.div
                   key={interview.id || idx}
@@ -285,7 +285,7 @@ function ReportsContent() {
                   whileHover={{ y: -8 }}
                   className="group"
                 >
-                  <div className="glass-card h-full rounded-[2.5rem] border-white/5 p-8 flex flex-col justify-between transition-all hover:bg-white/[0.03] group-hover:border-blue-500/20">
+                  <div                   className="glass-card flex h-full min-w-0 flex-col justify-between rounded-3xl border-white/5 p-5 transition-all hover:bg-white/[0.03] group-hover:border-blue-500/20 sm:rounded-[2.5rem] sm:p-7 lg:p-8">
                     <div className="relative">
                       <div className="flex justify-between items-start mb-6">
                         <div className={`p-3 rounded-2xl bg-${interview.difficulty === 'hard' ? 'rose' : interview.difficulty === 'medium' ? 'amber' : 'emerald'}-500/10 text-${interview.difficulty === 'hard' ? 'rose' : interview.difficulty === 'medium' ? 'amber' : 'emerald'}-400`}>
@@ -296,7 +296,7 @@ function ReportsContent() {
                         </span>
                       </div>
 
-                      <h2 className="text-2xl font-extrabold text-white mb-4 line-clamp-1 leading-tight group-hover:text-blue-400 transition-colors">
+                      <h2 className="mb-4 line-clamp-2 break-words text-xl font-extrabold leading-tight text-white transition-colors group-hover:text-blue-400 sm:text-2xl">
                         {interview.details || "Untitled Session"}
                       </h2>
 
@@ -358,11 +358,11 @@ function ReportsContent() {
 
       {/* REPORT MODAL */}
       <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
-        <DialogContent className="max-w-[95vw] md:max-w-7xl h-[95vh] md:h-[90vh] bg-slate-950 text-slate-200 border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-[3rem] overflow-hidden p-0 backdrop-blur-3xl">
+        <DialogContent className="h-[96dvh] max-h-[96dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border-white/10 bg-slate-950 p-0 text-slate-200 shadow-[0_0_100px_rgba(0,0,0,0.5)] backdrop-blur-3xl sm:h-[92dvh] sm:max-h-[92dvh] sm:w-[95vw] sm:max-w-[95vw] sm:rounded-3xl lg:max-w-7xl lg:rounded-[3rem]">
           <div className="flex flex-col h-full overflow-hidden">
-            <header className="px-8 py-6 border-b border-white/5 bg-white/[0.01] flex items-center justify-between shrink-0">
+            <header className="flex shrink-0 items-center justify-between border-b border-white/5 bg-white/[0.01] px-4 py-3 sm:px-6 sm:py-5 lg:px-8 lg:py-6">
               <div>
-                <DialogTitle className="text-2xl font-black text-white tracking-tight">
+                <DialogTitle className="text-xl font-black tracking-tight text-white sm:text-2xl">
                   Session <span className="text-blue-500 italic">Report</span>
                 </DialogTitle>
                 {/* <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Generated by NeuraView AI Engine</p> */}
@@ -390,10 +390,10 @@ function ReportsContent() {
               )}
             </div>
 
-            <footer className="px-8 py-6 border-t border-white/5 bg-white/[0.01] flex justify-end shrink-0">
+            <footer className="flex shrink-0 justify-end border-t border-white/5 bg-white/[0.01] px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-6">
               <Button
                 onClick={() => setSelectedReport(null)}
-                className="h-12 px-8 rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-white/10 font-bold transition-all"
+                className="h-11 rounded-xl border border-white/10 bg-white/5 px-5 font-bold text-white transition-all hover:bg-white/10 sm:h-12 sm:rounded-2xl sm:px-8"
               >
                 Exit Analysis
               </Button>

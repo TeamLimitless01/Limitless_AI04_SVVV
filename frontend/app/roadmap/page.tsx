@@ -179,7 +179,7 @@ const handleGenerateNew = () => {
   },[])
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
+    <div className="flex min-h-screen min-w-0 flex-col items-center justify-center overflow-x-hidden">
       {!generateRoadmap ? (
         <>
           <RoadmapForm
@@ -189,7 +189,7 @@ const handleGenerateNew = () => {
           />
         </>
       ) : (
-        <div className="mt-10">
+        <div className="mt-6 w-full min-w-0 sm:mt-10">
           {generateRoadmap && loading && <div>
                <div className="flex justify-center flex-col gap-8 items-center w-full h-[80vh]">
                       {/* <div style={{ width: "25%", height: "150px" }}>

@@ -86,7 +86,7 @@ export default function InterviewReport({ report }: { report?: any }) {
     : [];
 
   return (
-    <div className="bg-[#020617] p-8 md:p-12 text-slate-200">
+    <div className="min-w-0 overflow-x-hidden bg-[#020617] p-3 text-slate-200 sm:p-6 md:p-10 lg:p-12">
       <motion.div 
         variants={containerVariants}
         initial="hidden"
@@ -94,22 +94,22 @@ export default function InterviewReport({ report }: { report?: any }) {
         className="max-w-7xl mx-auto"
       >
         {/* Top Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <div className="mb-8 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:mb-12 lg:grid-cols-4 lg:gap-6">
           {/* Candidate Card */}
-          <motion.div variants={itemVariants} className="glass-card p-6 rounded-[2rem] border-white/5 bg-white/[0.02]">
+          <motion.div variants={itemVariants} className="glass-card min-w-0 rounded-2xl border-white/5 bg-white/[0.02] p-4 sm:rounded-[2rem] sm:p-6">
             <div className="flex items-center gap-4 mb-4">
               <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-400">
                 <User className="h-5 w-5" />
               </div>
               <span className="text-xs font-black uppercase tracking-widest text-slate-500">Candidate</span>
             </div>
-            <h3 className="text-xl font-bold text-white mb-1">{formatName(candidateInfo.candidateName)}</h3>
+            <h3 className="mb-1 break-words text-lg font-bold text-white sm:text-xl">{formatName(candidateInfo.candidateName)}</h3>
             <p className="text-sm text-slate-400 font-medium">{formatName(candidateInfo.jobRole)}</p>
             {candidateInfo.interviewType && <p className="mt-1 text-xs text-slate-500">{candidateInfo.interviewType}</p>}
           </motion.div>
 
           {/* Performance Card - Replaced Decision with Overall Score */}
-          <motion.div variants={itemVariants} className="glass-card p-6 rounded-[2rem] border-white/5 bg-white/[0.02]">
+          <motion.div variants={itemVariants} className="glass-card min-w-0 rounded-2xl border-white/5 bg-white/[0.02] p-4 sm:rounded-[2rem] sm:p-6">
             <div className="flex items-center gap-4 mb-4">
               <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400">
                 <TrendingUp className="h-5 w-5" />
@@ -123,7 +123,7 @@ export default function InterviewReport({ report }: { report?: any }) {
           </motion.div>
 
           {/* Skills Card */}
-          <motion.div variants={itemVariants} className="glass-card p-6 rounded-[2rem] border-white/5 bg-white/[0.02]">
+          <motion.div variants={itemVariants} className="glass-card min-w-0 rounded-2xl border-white/5 bg-white/[0.02] p-4 sm:rounded-[2rem] sm:p-6">
             <div className="flex items-center gap-4 mb-4">
               <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-400">
                 <Zap className="h-5 w-5" />
@@ -138,7 +138,7 @@ export default function InterviewReport({ report }: { report?: any }) {
           </motion.div>
 
           {/* Session Detail */}
-          <motion.div variants={itemVariants} className="glass-card p-6 rounded-[2rem] border-white/5 bg-white/[0.02]">
+          <motion.div variants={itemVariants} className="glass-card min-w-0 rounded-2xl border-white/5 bg-white/[0.02] p-4 sm:rounded-[2rem] sm:p-6">
             <div className="flex items-center gap-4 mb-4">
               <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400">
                 <Activity className="h-5 w-5" />
@@ -150,24 +150,24 @@ export default function InterviewReport({ report }: { report?: any }) {
           </motion.div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-8">
           {/* Main Analysis Column */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="min-w-0 space-y-4 lg:col-span-2 lg:space-y-8">
             {/* Answer Analysis */}
-            <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8 md:p-10 relative overflow-hidden">
+            <motion.section variants={itemVariants} className="glass-card relative min-w-0 overflow-hidden rounded-2xl border-white/5 p-4 sm:rounded-3xl sm:p-6 md:p-8 lg:rounded-[2.5rem] lg:p-10">
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[80px] rounded-full" />
               <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-8">
-                  <ClipboardCheck className="h-6 w-6 text-blue-400" />
-                  <h2 className="text-2xl font-black text-white tracking-tight">Answer Analysis</h2>
+                <div className="mb-5 flex items-center gap-3 sm:mb-8">
+                  <ClipboardCheck className="h-5 w-5 shrink-0 text-blue-400 sm:h-6 sm:w-6" />
+                  <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">Answer Analysis</h2>
                 </div>
                 
-                <p className="text-slate-400 text-lg leading-relaxed mb-10 italic border-l-2 border-blue-500/30 pl-6">
+                <p className="mb-6 break-words border-l-2 border-blue-500/30 pl-4 text-base italic leading-relaxed text-slate-400 sm:mb-10 sm:pl-6 sm:text-lg">
                   "{answerAnalysis.candidateAnswersSummary || 'No summary available.'}"
                 </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="p-6 rounded-3xl bg-emerald-500/5 border border-emerald-500/10">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:gap-8">
+                  <div className="rounded-2xl border border-emerald-500/10 bg-emerald-500/5 p-4 sm:rounded-3xl sm:p-6">
                     <h3 className="text-sm font-black uppercase tracking-widest text-emerald-400 mb-4 flex items-center gap-2">
                        <ShieldCheck className="h-4 w-4" /> Performance Strengths
                     </h3>
@@ -180,7 +180,7 @@ export default function InterviewReport({ report }: { report?: any }) {
                     </ul>
                   </div>
 
-                  <div className="p-6 rounded-3xl bg-rose-500/5 border border-rose-500/10">
+                  <div className="rounded-2xl border border-rose-500/10 bg-rose-500/5 p-4 sm:rounded-3xl sm:p-6">
                     <h3 className="text-sm font-black uppercase tracking-widest text-rose-400 mb-4 flex items-center gap-2">
                       <Zap className="h-4 w-4" /> Improvement Areas
                     </h3>
@@ -194,7 +194,7 @@ export default function InterviewReport({ report }: { report?: any }) {
                   </div>
                 </div>
 
-                <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6 pt-10 border-t border-white/5">
+                <div className="mt-6 grid grid-cols-1 gap-5 border-t border-white/5 pt-6 sm:mt-10 sm:grid-cols-2 sm:gap-6 sm:pt-10 lg:grid-cols-3">
                   <div>
                     <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Communication</h4>
                     <p className="text-slate-300 text-sm leading-relaxed">{answerAnalysis.communicationStyle || 'N/A'}</p>
@@ -218,16 +218,16 @@ export default function InterviewReport({ report }: { report?: any }) {
             </motion.section>
 
             {/* Final Summary Card */}
-            <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8 md:p-10 bg-gradient-to-br from-blue-600/10 to-transparent">
-              <div className="flex items-center gap-3 mb-6">
-                <Brain className="h-6 w-6 text-purple-400" />
-                <h2 className="text-2xl font-black text-white tracking-tight">AI Summary & Rationale</h2>
+            <motion.section variants={itemVariants} className="glass-card min-w-0 rounded-2xl border-white/5 bg-gradient-to-br from-blue-600/10 to-transparent p-4 sm:rounded-3xl sm:p-6 md:p-8 lg:rounded-[2.5rem] lg:p-10">
+              <div className="mb-5 flex items-center gap-3 sm:mb-6">
+                <Brain className="h-5 w-5 shrink-0 text-purple-400 sm:h-6 sm:w-6" />
+                <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">AI Summary & Rationale</h2>
               </div>
-              <p className="text-lg text-slate-300 leading-relaxed mb-8">
+              <p className="mb-6 text-base leading-relaxed text-slate-300 sm:mb-8 sm:text-lg">
                 {summaryAndNextSteps.finalSummary || 'No final summary generated.'}
               </p>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
                 <div>
                   <h4 className="text-sm font-black uppercase tracking-widest text-slate-500 mb-4">The Logic</h4>
                   <ul className="space-y-3">
@@ -253,11 +253,11 @@ export default function InterviewReport({ report }: { report?: any }) {
           </div>
 
           {/* Sidebar Area: Visual Metrics */}
-          <div className="space-y-8">
+          <div className="min-w-0 space-y-4 lg:space-y-8">
             {hasCompleteScorecard ? (
-              <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8">
-                <h3 className="text-xl font-bold text-white mb-8 tracking-tight">Competency Radar</h3>
-                <div className="h-64 relative">
+              <motion.section variants={itemVariants} className="glass-card min-w-0 rounded-2xl border-white/5 p-4 sm:rounded-3xl sm:p-6 lg:rounded-[2.5rem] lg:p-8">
+                <h3 className="mb-5 text-lg font-bold tracking-tight text-white sm:mb-8 sm:text-xl">Competency Radar</h3>
+                <div className="relative h-56 sm:h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                       <PolarGrid stroke="#ffffff10" />
@@ -276,16 +276,16 @@ export default function InterviewReport({ report }: { report?: any }) {
                 </div>
               </motion.section>
             ) : (
-              <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8">
-                <h3 className="text-xl font-bold text-white mb-3 tracking-tight">Competency Radar</h3>
+              <motion.section variants={itemVariants} className="glass-card min-w-0 rounded-2xl border-white/5 p-4 sm:rounded-3xl sm:p-6 lg:rounded-[2.5rem] lg:p-8">
+                <h3 className="mb-3 text-lg font-bold tracking-tight text-white sm:text-xl">Competency Radar</h3>
                 <p className="text-sm leading-relaxed text-slate-500">
                   The radar is hidden because one or more metrics were not assessable from the transcript.
                 </p>
               </motion.section>
             )}
 
-            <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8">
-              <h3 className="text-xl font-bold text-white mb-6 tracking-tight">Metric Distribution</h3>
+            <motion.section variants={itemVariants} className="glass-card min-w-0 rounded-2xl border-white/5 p-4 sm:rounded-3xl sm:p-6 lg:rounded-[2.5rem] lg:p-8">
+              <h3 className="mb-5 text-lg font-bold tracking-tight text-white sm:mb-6 sm:text-xl">Metric Distribution</h3>
               <div className="space-y-6">
                 {scoreBars.map((s) => (
                   <div key={s.name}>
@@ -311,8 +311,8 @@ export default function InterviewReport({ report }: { report?: any }) {
             </motion.section>
 
             {scorecardMetrics.length > 0 && (
-              <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8">
-                <h3 className="text-xl font-bold text-white mb-2 tracking-tight">Evidence-Based Scorecard</h3>
+              <motion.section variants={itemVariants} className="glass-card min-w-0 rounded-2xl border-white/5 p-4 sm:rounded-3xl sm:p-6 lg:rounded-[2.5rem] lg:p-8">
+                <h3 className="mb-2 text-lg font-bold tracking-tight text-white sm:text-xl">Evidence-Based Scorecard</h3>
                 <p className="text-xs leading-relaxed text-slate-500 mb-6">
                   Rubric {scorecard.rubricVersion}: ratings use transcript evidence; the overall score is calculated from the listed weights.
                 </p>
@@ -337,7 +337,7 @@ export default function InterviewReport({ report }: { report?: any }) {
                           {assessment.evidence.map((evidence: { messageIndex: number; quote: string }, index: number) => (
                             <blockquote
                               key={`${metric.id}-${evidence.messageIndex}-${index}`}
-                              className="rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs leading-relaxed text-slate-400"
+                              className="break-words rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs leading-relaxed text-slate-400"
                             >
                               “{evidence.quote}”
                               <footer className="mt-1 text-[10px] uppercase tracking-wider text-slate-600">

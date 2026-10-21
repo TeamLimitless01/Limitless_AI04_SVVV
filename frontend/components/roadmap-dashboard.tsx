@@ -34,36 +34,36 @@ export default function RoadmapDashboard({ data, handleDownload, handleGenerateN
   }
 
   return (
-    <div className="min-h-screen bg-transparent h-full p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen min-w-0 bg-transparent p-3 sm:p-5 md:p-8">
+      <div className="mx-auto w-full max-w-6xl min-w-0">
         {/* Header */}
-        <div className="mb-12">
-         <div className=" flex justify-between items-center">
-           <h1 className="text-4xl md:text-5xl font-bold text-balance mb-4">{data["title"]}</h1>
-           <div className=" flex gap-2">
-                 <Button className=" cursor-pointer" onClick={handleDownload}>
+        <div className="mb-8 sm:mb-12">
+         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+           <h1 className="mb-0 min-w-0 break-words text-3xl font-bold text-balance sm:text-4xl md:text-5xl">{data["title"]}</h1>
+           <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+                 <Button className="w-full cursor-pointer sm:w-auto" onClick={handleDownload}>
                 Download
               </Button>
-              <Button className=" cursor-pointer" onClick={()=>router.push("/chat")}>
+              <Button className="w-full cursor-pointer sm:w-auto" onClick={()=>router.push("/chat")}>
                 Chat
               </Button>
-                  <Button className=" cursor-pointer" onClick={()=>{
+                  <Button className="w-full cursor-pointer sm:w-auto" onClick={()=>{
                handleGenerateNew()}}>
                 Generate New
               </Button>
            </div>
          </div>
-          <p className="text-lg text-muted-foreground">{data["1. Job Role Overview"]}</p>
+          <p className="mt-4 break-words text-base text-muted-foreground sm:text-lg">{data["1. Job Role Overview"]}</p>
         </div>
 
         {/* Skills Overview */}
         <SkillsOverview skills={data["2. Skills Breakdown"]} />
 
         {/* Month Navigation and Display */}
-        <div className="mt-12 mb-12">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-bold">Month-by-Month Learning Path</h2>
-            <div className="flex items-center gap-2">
+        <div className="my-8 sm:my-12">
+          <div className="mb-5 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-2xl font-bold sm:text-3xl">Month-by-Month Learning Path</h2>
+            <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
               <button
                 onClick={handlePrevMonth}
                 className="p-2 rounded-lg bg-card border border-border hover:bg-muted transition-colors"
