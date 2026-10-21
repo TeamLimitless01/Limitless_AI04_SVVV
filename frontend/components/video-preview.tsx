@@ -15,7 +15,7 @@ interface EmotionData {
   blink: number;
 }
 
-const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
+const VideoPreview = memo(function VideoPreview({ startFn, stopFn, pipMode = false }: any) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cameraRef = useRef<any>(null);
@@ -316,7 +316,7 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
 
   return (
     <div className="flex flex-col gap-6 h-full w-full">
-       <div className="flex-1 relative flex items-center justify-center overflow-hidden rounded-[2.5rem] border border-white/10 bg-black shadow-2xl group">
+     <div className={`flex-1 relative flex items-center justify-center overflow-hidden ${pipMode ? 'rounded-none' : 'rounded-[2.5rem]'} border border-white/10 bg-black shadow-2xl group`}>
         <video ref={videoRef} className="hidden" playsInline></video>
         <canvas ref={canvasRef} className="w-full h-full object-cover"></canvas>
         
@@ -331,6 +331,7 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
         </div>
       </div>
 
+      {!pipMode && (
       <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -351,6 +352,7 @@ const VideoPreview = memo(function VideoPreview({ startFn, stopFn }: any) {
               sad={metrics.sad}
           />
       </motion.div>
+      )}
     </div>
   );
 });

@@ -145,7 +145,7 @@ RULES:
 
     const data = await apiRes.json();
     const content = data.choices?.[0]?.message?.content; // guaranteed JSON string from v2
-    
+
     let parsedResponse: any = {};
     try {
       parsedResponse = JSON.parse(content);
