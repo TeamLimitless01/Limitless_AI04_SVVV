@@ -14,6 +14,8 @@ interface SidePanelProps {
   timeLeft: number;
   totalTime: number;
   isCaptionsOn: boolean;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
 }
 
 const formatTime = (seconds: number) => {
@@ -34,8 +36,9 @@ const SidePanel = memo(function SidePanel({
   timeLeft,
   totalTime,
   isCaptionsOn,
+  collapsed,
+  onCollapsedChange,
 }: SidePanelProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<"transcript" | "progress">("transcript");
 
   const assistantMessages = messages.filter((m) => m.role === "assistant");
@@ -46,7 +49,7 @@ const SidePanel = memo(function SidePanel({
     <div className="relative flex h-full">
       {/* Collapse Toggle */}
       <button
-        onClick={() => setCollapsed((c) => !c)}
+        onClick={() => onCollapsedChange(!collapsed)}
         className="absolute left-0 top-1/2 -translate-x-full -translate-y-1/2 z-20 w-6 h-12 flex items-center justify-center bg-[#0d0d1a]/90 border border-white/[0.08] rounded-l-xl backdrop-blur-md text-white/30 hover:text-white/70 transition-colors"
         title={collapsed ? "Open panel" : "Collapse panel"}
       >

@@ -47,8 +47,8 @@ export default function Hero() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.8 }}
       >
-        Practice transformative interview experiences powered by industry-leading AI models. 
-        Get real-time feedback on your confidence, tone, and technical skills.
+        Practice interview experiences with AI-powered conversations.
+        Get feedback on your answers, communication, and technical skills.
       </motion.p>
     </div>
   )

@@ -43,12 +43,17 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
 
   // New UI state
-  const [isCameraOn, setIsCameraOn] = useState(true);
+  const [isCameraOn, setIsCameraOn] = useState(false);
   const [isCaptionsOn, setIsCaptionsOn] = useState(false);
+  const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(false);
 
   // Refs for callbacks
-  const startAnalyticsRef = useRef<(() => void) | null>(null);
-  const stopAnalyticsRef = useRef<(() => string) | null>(null);
+  const handleGenerateReportRef = useRef<(() => Promise<void>) | null>(null);
+  const requestGenerateReport = useCallback(() => {
+    const generateReport = handleGenerateReportRef.current;
+    if (!generateReport) throw new Error("Report generation is not initialized.");
+    void generateReport();
+  }, []);
 
   const router = useRouter();
 
@@ -172,7 +177,6 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     setListening(true);
     startSession();
     setShowStartModal(false);
-    if (startAnalyticsRef.current) startAnalyticsRef.current();
   }, [startSession]);
 
   const handleSend = useCallback(
@@ -197,7 +201,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
           duration: 5000,
           icon: "🚫",
         });
-        handleGenerateReport();
+        requestGenerateReport();
       }
     };
 
@@ -244,18 +248,16 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
         { role: "assistant", content: "The interview time is up. Wrap up and report generation initiated." },
       ]);
       toast("Time is up! Wrapping up...", { icon: "⏳" });
-      handleGenerateReport();
+      requestGenerateReport();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, showStartModal, hasAutoSubmitted, isGeneratingReport, stopSession]);
 
-  const handleGenerateReport = async () => {
+  const handleGenerateReport = useCallback(async () => {
     if (isGeneratingReport) return;
     setIsGeneratingReport(true);
     setIsInterviewCompleted(true);
     try {
-      let feed = "";
-      if (stopAnalyticsRef.current) feed = stopAnalyticsRef.current();
       await strapi.update("interviews", params.id, { conversation: messages });
       const res = await fetch("/api/interview/report", {
         method: "POST",
@@ -266,7 +268,6 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
             ...interviewDetails,
             numOfQuestions: messages.filter((m) => m.role === "assistant").length,
           },
-          faceMeshFeedback: feed,
           tabSwitchCount: tabSwitchCount,
         }),
       });
@@ -281,12 +282,22 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     } finally {
       setIsGeneratingReport(false);
     }
-  };
+  }, [isGeneratingReport, messages, interviewDetails, tabSwitchCount, params.id, router]);
+
+  handleGenerateReportRef.current = handleGenerateReport;
 
   const handleEndInterview = useCallback(() => {
     stopSession();
-    handleGenerateReport();
-  }, [stopSession]);
+    requestGenerateReport();
+  }, [stopSession, requestGenerateReport]);
+
+  const toggleMic = useCallback(() => setListening((current) => !current), []);
+  const toggleCamera = useCallback(() => setIsCameraOn((current) => !current), []);
+  const toggleCaptions = useCallback(() => setIsCaptionsOn((current) => !current), []);
+  const toggleSidePanel = useCallback(
+    () => setIsSidePanelCollapsed((collapsed) => !collapsed),
+    []
+  );
 
   // ── Loading State ──────────────────────────────────────────────────────────
   if (isLoading) {
@@ -345,10 +356,18 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
             Desktop: [AI Stage (flexible)] [Side Panel (320px)]
             Mobile:  stacked (AI Stage → Controls → Side Panel collapsed)
         ─────────────────────────────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col lg:flex-row gap-2 md:gap-3 min-h-0">
+        <div
+          className={`flex-1 flex flex-col lg:flex-row ${
+            isSidePanelCollapsed ? "gap-0" : "gap-2 md:gap-3"
+          } min-h-0`}
+        >
 
           {/* ── LEFT: AI Stage + PiP Camera ─────────────────────────── */}
-          <div className="flex-1 flex flex-col gap-2 md:gap-3 min-h-0 min-w-0">
+          <div
+            className={`flex flex-col gap-2 md:gap-3 min-h-0 min-w-0 ${
+              isSidePanelCollapsed ? "flex-1 max-w-[1200px] mx-auto" : "flex-1"
+            }`}
+          >
 
             {/* AI Interviewer stage — takes up all available space */}
             <div className="flex-1 relative min-h-0">
@@ -372,7 +391,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
                   md:w-[18vw] md:max-w-[200px]
                   lg:w-[14vw] lg:max-w-[220px]
                   transition-all duration-300
-                  ${!isCameraOn ? "opacity-0 pointer-events-none" : "opacity-100"}
+                  ${!isCameraOn || !isActive ? "opacity-0 pointer-events-none" : "opacity-100"}
                 `}
               >
                 <motion.div
@@ -381,11 +400,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
                   className="relative rounded-xl md:rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black"
                   style={{ aspectRatio: "4/3" }}
                 >
-                  <VideoPreview
-                    startFn={(fn: any) => { startAnalyticsRef.current = fn(); }}
-                    stopFn={(fn: any) => { stopAnalyticsRef.current = fn(); }}
-                    pipMode={true}
-                  />
+                  {isCameraOn && isActive && <VideoPreview pipMode />}
 
                   {/* PiP overlays */}
                   <div className="absolute inset-0 pointer-events-none">
@@ -455,28 +470,27 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
             {/* ── BOTTOM TOOLBAR ─────────────────────────────────────── */}
             <BottomToolbar
-              isActive={isActive}
               listening={listening}
               volume={volume}
               isCameraOn={isCameraOn}
               isCaptionsOn={isCaptionsOn}
+              isSidePanelCollapsed={isSidePanelCollapsed}
               isInterviewCompleted={isInterviewCompleted}
               isGeneratingReport={isGeneratingReport}
-              onToggleMic={() => setListening((s) => !s)}
-              onToggleCamera={() => setIsCameraOn((s) => !s)}
-              onToggleCaptions={() => setIsCaptionsOn((s) => !s)}
+              onToggleMic={toggleMic}
+              onToggleCamera={toggleCamera}
+              onToggleCaptions={toggleCaptions}
+              onToggleSidePanel={toggleSidePanel}
               onEndInterview={handleEndInterview}
-              onGenerateReport={handleGenerateReport}
+              onGenerateReport={requestGenerateReport}
             />
           </div>
 
           {/* ── RIGHT: Collapsible Side Panel (Desktop only) ─────────── */}
           <div
-            className="
-              hidden lg:flex
-              w-[320px] xl:w-[360px] flex-shrink-0
-              flex-col min-h-0
-            "
+            className={`hidden lg:flex flex-col min-h-0 min-w-0 flex-shrink-0 transition-[width] duration-300 ${
+              isSidePanelCollapsed ? "w-0" : "w-[320px] xl:w-[360px]"
+            }`}
           >
             <SidePanel
               messages={messages}
@@ -485,6 +499,8 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
               timeLeft={timeLeft}
               totalTime={totalTime}
               isCaptionsOn={isCaptionsOn}
+              collapsed={isSidePanelCollapsed}
+              onCollapsedChange={setIsSidePanelCollapsed}
             />
           </div>
         </div>

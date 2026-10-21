@@ -13,13 +13,13 @@ export async function GET(
     const interviewsParams = await Interview.find({ user: userId }).sort({ createdAt: -1 }).exec();
 
     let totalInterviews = interviewsParams.length;
-    let avgOverall = 0, avgConfidence = 0, avgCommunication = 0;
+    let avgOverall = 0, avgCommunication = 0;
 
     // For trends
     const trendMap: Record<string, { total: number; count: number }> = {};
     const skillCountMap: Record<string, number> = {};
 
-    let sumTech = 0, sumComm = 0, sumProb = 0, sumConf = 0, sumEng = 0;
+    let sumTech = 0, sumComm = 0, sumProb = 0;
     let reportCount = 0;
 
     const recentReports = [];
@@ -48,14 +48,11 @@ export async function GET(
 
       reportCount++;
       avgOverall += (scores.overall || 0);
-      avgConfidence += (scores.confidenceLevel || 0);
       avgCommunication += (scores.communication || 0);
 
       sumTech += (scores.technicalKnowledge || 0);
       sumComm += (scores.communication || 0);
       sumProb += (scores.problemSolving || 0);
-      sumConf += (scores.confidenceLevel || 0);
-      sumEng += (scores.engagement || 0);
 
       // Trend data
       const dateKey = new Date(itv.createdAt as any).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -77,7 +74,6 @@ export async function GET(
 
     if (reportCount > 0) {
       avgOverall = parseFloat((avgOverall / reportCount).toFixed(1));
-      avgConfidence = parseFloat((avgConfidence / reportCount).toFixed(1));
       avgCommunication = parseFloat((avgCommunication / reportCount).toFixed(1));
     }
 
@@ -92,8 +88,6 @@ export async function GET(
       { category: "Technical", avgScore: parseFloat((sumTech / reportCount).toFixed(1)) },
       { category: "Comm", avgScore: parseFloat((sumComm / reportCount).toFixed(1)) },
       { category: "Problem Solving", avgScore: parseFloat((sumProb / reportCount).toFixed(1)) },
-      { category: "Confidence", avgScore: parseFloat((sumConf / reportCount).toFixed(1)) },
-      { category: "Engagement", avgScore: parseFloat((sumEng / reportCount).toFixed(1)) }
     ] : [];
 
     const skillDistribution = Object.keys(skillCountMap).map(k => ({
@@ -106,7 +100,6 @@ export async function GET(
         overview: {
           totalInterviews,
           avgOverall,
-          avgConfidence,
           avgCommunication
         },
         charts: {

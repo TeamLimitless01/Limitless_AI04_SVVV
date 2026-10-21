@@ -9,7 +9,7 @@ import {
   Tooltip,
 } from "recharts";
 import { motion } from "framer-motion";
-import { User, ClipboardCheck, Brain, Smile, Activity, ShieldCheck, Zap, ArrowUpRight, TrendingUp } from "lucide-react";
+import { User, ClipboardCheck, Brain, Activity, ShieldCheck, Zap, ArrowUpRight, TrendingUp } from "lucide-react";
 
 export default function InterviewReport({ report }: { report?: any }) {
   if (!report) return (
@@ -27,18 +27,12 @@ export default function InterviewReport({ report }: { report?: any }) {
     { name: "Technical", value: scores.technicalKnowledge || 0, color: "blue" },
     { name: "Communication", value: scores.communication || 0, color: "emerald" },
     { name: "Problem Solving", value: scores.problemSolving || 0, color: "amber" },
-    { name: "Confidence", value: scores.confidenceLevel || 0, color: "indigo" },
-    { name: "Engagement", value: scores.engagement || 0, color: "rose" },
-    { name: "Composure", value: scores.composure || 0, color: "purple" },
   ];
 
   const radarData = [
     { subject: "Technical", A: scores.technicalKnowledge || 0, fullMark: 10 },
     { subject: "Communication", A: scores.communication || 0, fullMark: 10 },
     { subject: "Problem Solving", A: scores.problemSolving || 0, fullMark: 10 },
-    { subject: "Confidence", A: scores.confidenceLevel || 0, fullMark: 10 },
-    { subject: "Engagement", A: scores.engagement || 0, fullMark: 10 },
-    { subject: "Composure", A: scores.composure || 0, fullMark: 10 },
   ];
 
   const formatName = (s: any) =>
@@ -48,8 +42,6 @@ export default function InterviewReport({ report }: { report?: any }) {
   const answerAnalysis = data.answerAnalysis || { strengths: [], weaknesses: [], insights: [] };
   const overallPerformance = data.overallPerformance || {};
   const summaryAndNextSteps = data.summaryAndNextSteps || { rationale: [], actionableNextSteps: [] };
-  const facialAnalytics = data.facialAnalytics || {};
-
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -273,10 +265,7 @@ export default function InterviewReport({ report }: { report?: any }) {
                         className={`h-full bg-gradient-to-r ${
                           s.color === 'blue' ? 'from-blue-600 to-blue-400' :
                           s.color === 'emerald' ? 'from-emerald-600 to-emerald-400' :
-                          s.color === 'amber' ? 'from-amber-600 to-amber-400' :
-                          s.color === 'indigo' ? 'from-indigo-600 to-indigo-400' :
-                          s.color === 'rose' ? 'from-rose-600 to-rose-400' :
-                          'from-purple-600 to-purple-400'
+                          'from-amber-600 to-amber-400'
                         }`}
                       />
                     </div>
@@ -285,19 +274,6 @@ export default function InterviewReport({ report }: { report?: any }) {
               </div>
             </motion.section>
 
-            <motion.section variants={itemVariants} className="glass-card rounded-[2.5rem] border-white/5 p-8 bg-blue-600/5 border-blue-500/20">
-              <div className="flex items-center gap-3 mb-6">
-                <Smile className="h-6 w-6 text-blue-400" />
-                <h3 className="text-xl font-bold text-white tracking-tight">Facial Analytics</h3>
-              </div>
-              <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                {facialAnalytics.emotionSummary || 'Facial metrics not captured for this session.'}
-              </p>
-              <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-2">Vision Logs</p>
-                <p className="text-slate-400 text-sm italic">"{facialAnalytics.notes || 'No vision data detected.'}"</p>
-              </div>
-            </motion.section>
           </div>
         </div>
       </motion.div>

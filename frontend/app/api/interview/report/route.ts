@@ -1,6 +1,6 @@
 export async function POST(req: Request) {
   try {
-    const { messages, interviewDetails, faceMeshFeedback, tabSwitchCount } = await req.json();
+    const { messages, interviewDetails, tabSwitchCount } = await req.json();
 
     const model = "openai/gpt-6-luna";
     const systemPrompt = `
@@ -8,10 +8,10 @@ You are an expert AI recruiter and evaluation system.
 
 Your task: Generate a **structured interview report strictly in RAW JSON format**.
 
-### 🚥 INTEGRITY & ANTI-CHEAT:
-- You will receive a 'tabSwitchCount' which indicates how many times the candidate switched tabs or lost focus during the interview. 
-- If 'tabSwitchCount' is > 0, mention it in the 'facialAnalytics.notes' or 'overallPerformance.justification' as a lack of focus or potential integrity issue.
-- Penalize the 'engagement' and 'confidenceLevel' scores if tab switching is frequent.
+### 🚥 INTEGRITY:
+- You will receive a 'tabSwitchCount' indicating how many times the candidate switched tabs or lost focus during the interview.
+- If 'tabSwitchCount' is greater than 0, mention it neutrally in 'overallPerformance.justification'.
+- Base assessments only on the interview answers and provided interview details. Do not infer or evaluate facial expressions, confidence, emotion, engagement, composure, or camera presence.
 
 ### ⚠️ ABSOLUTE RULES:
 - Output must be **raw JSON only** — no Markdown, no \`\`\`json, no text before or after.
@@ -40,12 +40,6 @@ Your task: Generate a **structured interview report strictly in RAW JSON format*
     "problemSolvingApproach": string,
     "insights": string[]
   },
-  "facialAnalytics": {
-    "confidence": string,
-    "nervousness": string,
-    "emotionSummary": string,
-    "notes": string
-  },
   "overallPerformance": {
     "summary": string,
     "justification": string
@@ -59,9 +53,6 @@ Your task: Generate a **structured interview report strictly in RAW JSON format*
     "technicalKnowledge": number,   // out of 10
     "communication": number,        // out of 10
     "problemSolving": number,       // out of 10
-    "confidenceLevel": number,      // out of 10
-    "engagement": number,           // out of 10
-    "composure": number,            // out of 10
     "overall": number,              // out of 10
     "potentialFit": number          // out of 10
   }
@@ -69,7 +60,6 @@ Your task: Generate a **structured interview report strictly in RAW JSON format*
 
 ### ⚙️ Edge Case Handling Rules:
 - If candidate skipped or gave no answers, set all textual analysis fields to short neutral statements like "No valid response provided."
-- If facial data is missing or unclear, set all facial analytics fields to "Not detected" and scores to 0–3.
 - Always ensure numeric scores are integers between 0 and 10.
 - Always include candidate name exactly as provided in the input.
 - If data is incomplete, still output the same schema with best-effort analysis.
@@ -99,7 +89,6 @@ Return **only** the JSON in the exact structure above.
               candidateName: interviewDetails?.username || "N/A",
               interviewDetails,
               messages,
-              facialAnalytics: faceMeshFeedback,
               integrityViolations: tabSwitchCount || 0,
             }),
           },

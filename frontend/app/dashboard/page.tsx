@@ -134,11 +134,10 @@ export default function DashboardPage() {
           className="space-y-12"
         >
           {/* Overview Cards Verticalized for Impact */}
-          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               { title: "Total Sessions", value: overview.totalInterviews, icon: Users, color: "blue" },
               { title: "Avg Performance", value: `${overview.avgOverall}/10`, icon: Award, color: "emerald" },
-              { title: "Confidence Level", value: `${overview.avgConfidence}/10`, icon: Zap, color: "amber" },
               { title: "Communication", value: `${overview.avgCommunication}/10`, icon: MessageSquare, color: "purple" },
             ].map((item, idx) => (
               <motion.div key={idx} variants={itemVariants}>
@@ -198,7 +197,7 @@ export default function DashboardPage() {
               <div className="glass-card h-full rounded-[2.5rem] border-white/5 p-8 relative overflow-hidden">
                 <div className="flex items-center gap-3 mb-10">
                   <BrainCircuit className="h-6 w-6 text-purple-400" />
-                  <h2 className="text-2xl font-black text-white tracking-tight">Trait Profile</h2>
+                  <h2 className="text-2xl font-black text-white tracking-tight">Answer-Based Competencies</h2>
                 </div>
                 
                 <div className="w-full h-[300px] flex items-center justify-center">

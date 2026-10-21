@@ -73,8 +73,7 @@ export default function HomePage() {
                 Why <span className="text-gradient">NeuraView?</span>
               </h2>
               <p className="text-slate-400 text-lg md:text-xl max-w-3xl mx-auto leading-relaxed">
-                We've combined advanced computer vision with next-generation LLMs to provide a 
-                mirror for your professional excellence.
+                Practice interview answers with AI-powered conversations and an optional camera presence check.
               </p>
             </div>
 
@@ -87,14 +86,14 @@ export default function HomePage() {
                   color: "blue"
                 },
                 {
-                  title: "Expression Analysis",
-                  desc: "Track eye contact, confidence levels, and emotional intelligence through video feedback.",
+                  title: "Optional Camera Check",
+                  desc: "Enable your camera to confirm a person is visible during the interview. Camera presence is not used to score your report.",
                   icon: <Camera className="h-7 w-7" />,
                   color: "purple"
                 },
                 {
-                  title: "Smart Metrics",
-                  desc: "Comprehensive scoring based on content, clarity, and non-verbal communication.",
+                  title: "Answer-Based Evaluation",
+                  desc: "Get interview feedback based on your answers, technical depth, and communication.",
                   icon: <BarChart3 className="h-7 w-7" />,
                   color: "emerald"
                 },
