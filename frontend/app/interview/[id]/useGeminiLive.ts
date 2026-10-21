@@ -23,17 +23,23 @@ export function useGeminiLive({
     const audioContextRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const processorRef = useRef<ScriptProcessorNode | null>(null);
+    const micSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
     const sessionRef = useRef<any>(null);
+    const sessionGenerationRef = useRef(0);
     const isSessionClosingRef = useRef(false);
     const audioQueueRef = useRef<Int16Array[]>([]);
     const nextStartTimeRef = useRef<number>(0);
     const isPlayingRef = useRef(false);
     const isBufferingRef = useRef(true);
     const activeSourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const playbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const isMutedRef = useRef(isMuted);
     useEffect(() => {
         isMutedRef.current = isMuted;
+        streamRef.current?.getAudioTracks().forEach((track) => {
+            track.enabled = !isMuted;
+        });
     }, [isMuted]);
 
     const onMessageRef = useRef(onMessage);
@@ -53,7 +59,7 @@ export function useGeminiLive({
     }, [onMessage, onInterrupt, onUserTranscription, setVolume, setAiSpeaking, setIsInterviewCompleted]);
 
     const playNextInQueue = useCallback(async () => {
-        if (audioQueueRef.current.length === 0 || !audioContextRef.current) {
+        if (isSessionClosingRef.current || audioQueueRef.current.length === 0 || !audioContextRef.current) {
             isPlayingRef.current = false;
             setAiSpeakingRef.current(false);
             activeSourceRef.current = null;
@@ -96,7 +102,10 @@ export function useGeminiLive({
         nextStartTimeRef.current += duration;
 
         const timeout = (nextStartTimeRef.current - currentTime) * 1000 - 50;
-        setTimeout(() => playNextInQueue(), Math.max(0, timeout));
+        playbackTimerRef.current = setTimeout(() => {
+            playbackTimerRef.current = null;
+            void playNextInQueue();
+        }, Math.max(0, timeout));
     }, []);
 
     const stopAudioPlayback = useCallback(() => {
@@ -107,10 +116,18 @@ export function useGeminiLive({
         setAiSpeakingRef.current(false);
         nextStartTimeRef.current = 0;
 
+        if (playbackTimerRef.current) {
+            clearTimeout(playbackTimerRef.current);
+            playbackTimerRef.current = null;
+        }
+
         if (activeSourceRef.current) {
             try {
                 activeSourceRef.current.stop();
-            } catch (e) { }
+            } catch (error) {
+                console.warn("[useGeminiLive] Audio playback was already stopped:", error);
+            }
+            activeSourceRef.current.disconnect();
             activeSourceRef.current = null;
         }
     }, []);
@@ -118,14 +135,21 @@ export function useGeminiLive({
     const stopSession = useCallback(() => {
         console.log("[useGeminiLive] Stopping Session...");
         isSessionClosingRef.current = true;
+        sessionGenerationRef.current += 1;
         stopAudioPlayback();
         setIsActive(false);
         setIsConnecting(false);
         setVolumeRef.current(0);
 
         if (processorRef.current) {
+            processorRef.current.onaudioprocess = null;
             processorRef.current.disconnect();
             processorRef.current = null;
+        }
+
+        if (micSourceRef.current) {
+            micSourceRef.current.disconnect();
+            micSourceRef.current = null;
         }
 
         if (streamRef.current) {
@@ -134,26 +158,35 @@ export function useGeminiLive({
         }
 
         if (audioContextRef.current) {
-            audioContextRef.current.close().catch(() => { });
+            void audioContextRef.current.close().catch((error) => {
+                console.warn("[useGeminiLive] Could not close audio context:", error);
+            });
             audioContextRef.current = null;
         }
 
         if (sessionRef.current) {
             try {
                 sessionRef.current.close();
-            } catch (e) { }
+            } catch (error) {
+                console.warn("[useGeminiLive] Could not close live session:", error);
+            }
             sessionRef.current = null;
         }
     }, [stopAudioPlayback]);
 
-    const startMicStreaming = useCallback((sessionPromise: Promise<any>) => {
+    const startMicStreaming = useCallback((sessionPromise: Promise<any>, generation: number) => {
         if (!audioContextRef.current || !streamRef.current) return;
 
         const source = audioContextRef.current.createMediaStreamSource(streamRef.current);
+        micSourceRef.current = source;
         processorRef.current = audioContextRef.current.createScriptProcessor(CHUNK_SIZE, 1, 1);
 
         processorRef.current.onaudioprocess = (e) => {
-            if (isMutedRef.current) return;
+            if (
+                isMutedRef.current ||
+                isSessionClosingRef.current ||
+                generation !== sessionGenerationRef.current
+            ) return;
 
             const inputData = e.inputBuffer.getChannelData(0);
             let sum = 0;
@@ -171,6 +204,7 @@ export function useGeminiLive({
             const base64Data = btoa(binary);
 
             sessionPromise.then((session) => {
+                if (isSessionClosingRef.current || generation !== sessionGenerationRef.current) return;
                 try {
                     session.sendRealtimeInput({
                         audio: {
@@ -189,6 +223,7 @@ export function useGeminiLive({
     }, []);
 
     const startSession = useCallback(async (audioStream: MediaStream) => {
+        const generation = ++sessionGenerationRef.current;
         try {
             setError(null);
             setIsConnecting(true);
@@ -201,9 +236,13 @@ export function useGeminiLive({
             if (!audioStream.getAudioTracks().length) {
                 throw new Error("Microphone access is required to start the audio interview.");
             }
+            audioStream.getAudioTracks().forEach((track) => {
+                track.enabled = !isMutedRef.current;
+            });
             streamRef.current = audioStream;
             audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: SAMPLE_RATE });
             if (audioContextRef.current.state === "suspended") await audioContextRef.current.resume();
+            if (generation !== sessionGenerationRef.current || isSessionClosingRef.current) return;
 
             const ai = new GoogleGenAI({ apiKey });
 
@@ -337,16 +376,19 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                 },
                 callbacks: {
                     onopen: () => {
+                        if (generation !== sessionGenerationRef.current || isSessionClosingRef.current) return;
                         setIsActive(true);
                         setIsConnecting(false);
                         nextStartTimeRef.current = 0;
-                        startMicStreaming(sessionPromise);
+                        startMicStreaming(sessionPromise, generation);
                         sessionPromise.then((session) => {
+                            if (generation !== sessionGenerationRef.current || isSessionClosingRef.current) return;
                             const openingPrompt = "[SYSTEM: Begin the interview now. Greet the candidate warmly by name, introduce yourself as Neura, and ask if they are ready to begin.]";
                             session.sendRealtimeInput({ text: openingPrompt });
                         });
                     },
                     onmessage: async (message: LiveServerMessage) => {
+                        if (generation !== sessionGenerationRef.current || isSessionClosingRef.current) return;
                         const msg = message as any;
                         const parts = message.serverContent?.modelTurn?.parts ?? [];
 
@@ -393,32 +435,42 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
                         }
                     },
                     onclose: (event) => {
-                        if (!isSessionClosingRef.current) {
+                        if (generation === sessionGenerationRef.current && !isSessionClosingRef.current) {
                             const detail = event.reason || `code ${event.code}`;
                             setError(`Interview connection closed (${detail}).`);
+                            stopSession();
                         }
-                        stopSession();
                     },
                     onerror: (event) => {
-                        if (!isSessionClosingRef.current) {
+                        if (generation === sessionGenerationRef.current && !isSessionClosingRef.current) {
                             setError(event.message || "Connection error.");
+                            stopSession();
                         }
-                        stopSession();
                     }
                 }
             });
 
-            sessionRef.current = await sessionPromise;
+            const session = await sessionPromise;
+            if (generation !== sessionGenerationRef.current || isSessionClosingRef.current) {
+                try {
+                    session.close();
+                } catch (error) {
+                    console.warn("[useGeminiLive] Could not close late live session:", error);
+                }
+                return;
+            }
+            sessionRef.current = session;
         } catch (err: any) {
-            setError(err.message);
-            setIsConnecting(false);
-            stopSession();
+            if (generation === sessionGenerationRef.current && !isSessionClosingRef.current) {
+                setError(err.message);
+                stopSession();
+            }
             throw err;
         }
     }, [interviewDetails, startMicStreaming, playNextInQueue, stopSession, stopAudioPlayback]);
 
     const sendSystemMessage = useCallback((text: string) => {
-        if (!sessionRef.current) return;
+        if (!sessionRef.current || isSessionClosingRef.current) return;
         sessionRef.current.sendRealtimeInput({ text });
     }, []);
 

@@ -136,6 +136,25 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   });
 
   useEffect(() => {
+    const stopLiveInterview = () => {
+      setListening(false);
+      stopSession();
+    };
+
+    window.addEventListener("popstate", stopLiveInterview);
+    window.addEventListener("pagehide", stopLiveInterview);
+    return () => {
+      window.removeEventListener("popstate", stopLiveInterview);
+      window.removeEventListener("pagehide", stopLiveInterview);
+      stopSession();
+    };
+  }, [stopSession]);
+
+  useEffect(() => {
+    if (!isActive && !isConnecting) setListening(false);
+  }, [isActive, isConnecting]);
+
+  useEffect(() => {
     if (aiSpeaking) userTranscriptMsgId.current = null;
   }, [aiSpeaking]);
 
@@ -188,6 +207,8 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
           duration: 5000,
           icon: "🚫",
         });
+        setListening(false);
+        stopSession();
         requestGenerateReport();
       }
     };
@@ -204,18 +225,11 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
       }, 1000);
     };
 
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleBlur);
-    window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showStartModal, isInterviewCompleted]);
@@ -229,6 +243,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
     if (timeLeft === 0 && !showStartModal && !hasAutoSubmitted && !isGeneratingReport) {
       setHasAutoSubmitted(true);
+      setListening(false);
       stopSession();
       setMessages((prev: Message[]) => [
         ...prev,
@@ -242,6 +257,8 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
   const handleGenerateReport = useCallback(async () => {
     if (isGeneratingReport) return;
+    setListening(false);
+    stopSession();
     setIsGeneratingReport(true);
     setIsInterviewCompleted(true);
     try {
@@ -273,11 +290,12 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     } finally {
       setIsGeneratingReport(false);
     }
-  }, [isGeneratingReport, messages, interviewDetails, tabSwitchCount, params.id, router]);
+  }, [isGeneratingReport, messages, interviewDetails, tabSwitchCount, params.id, router, stopSession]);
 
   handleGenerateReportRef.current = handleGenerateReport;
 
   const handleEndInterview = useCallback(() => {
+    setListening(false);
     stopSession();
     requestGenerateReport();
   }, [stopSession, requestGenerateReport]);
