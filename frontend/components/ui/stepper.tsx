@@ -265,7 +265,7 @@ interface StepProps {
 }
 
 export function Step({ children }: StepProps) {
-  return <div className="px-8">{children}</div>;
+  return <div className="px-2 sm:px-8">{children}</div>;
 }
 
 interface StepIndicatorProps {

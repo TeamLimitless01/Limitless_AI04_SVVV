@@ -22,34 +22,47 @@ export default function InterviewReport({ report }: { report?: any }) {
 
   // Safe access to scores
   const scores = data.scores || {};
-  
+  const scorecard = data.scorecard;
+  const defaultMetricLabels: Record<string, string> = {
+    roleKnowledge: "Role knowledge and application",
+    problemSolving: "Reasoning and problem solving",
+    communication: "Communication and clarity",
+  };
+  const weighting = scorecard?.weighting || {
+    roleKnowledge: { label: defaultMetricLabels.roleKnowledge, weight: 0.4 },
+    problemSolving: { label: defaultMetricLabels.problemSolving, weight: 0.35 },
+    communication: { label: defaultMetricLabels.communication, weight: 0.25 },
+  };
+  const scorecardMetrics = scorecard?.metrics
+    ? Object.entries(weighting).map(([id, definition]: [string, any]) => ({
+        id,
+        label: definition.label || defaultMetricLabels[id] || id,
+        weight: Math.round(Number(definition.weight) * 100),
+      }))
+    : [];
+  const metricLabel = (id: string) =>
+    weighting[id]?.label || defaultMetricLabels[id] || id;
+
   const scoreBars = [
-    { name: "Role Knowledge", value: scores.roleKnowledge ?? scores.technicalKnowledge ?? 0, scored: (scores.roleKnowledge ?? scores.technicalKnowledge) != null, color: "blue" },
-    { name: "Communication", value: scores.communication ?? 0, scored: scores.communication != null, color: "emerald" },
-    { name: "Problem Solving", value: scores.problemSolving ?? 0, scored: scores.problemSolving != null, color: "amber" },
+    { name: metricLabel("roleKnowledge"), value: scores.roleKnowledge ?? scores.technicalKnowledge ?? 0, scored: (scores.roleKnowledge ?? scores.technicalKnowledge) != null, color: "blue" },
+    { name: metricLabel("communication"), value: scores.communication ?? 0, scored: scores.communication != null, color: "emerald" },
+    { name: metricLabel("problemSolving"), value: scores.problemSolving ?? 0, scored: scores.problemSolving != null, color: "amber" },
   ];
 
   const radarData = [
-    { subject: "Role Knowledge", A: scores.roleKnowledge ?? scores.technicalKnowledge ?? 0, fullMark: 10 },
-    { subject: "Communication", A: scores.communication ?? 0, fullMark: 10 },
-    { subject: "Problem Solving", A: scores.problemSolving ?? 0, fullMark: 10 },
+    { subject: metricLabel("roleKnowledge"), A: scores.roleKnowledge ?? scores.technicalKnowledge ?? 0, fullMark: 10 },
+    { subject: metricLabel("communication"), A: scores.communication ?? 0, fullMark: 10 },
+    { subject: metricLabel("problemSolving"), A: scores.problemSolving ?? 0, fullMark: 10 },
   ];
 
   const formatName = (s: any) =>
     s ? String(s).replace(/(^|\s)\S/g, (t: any) => t.toUpperCase()) : "N/A";
 
   const candidateInfo = data.candidateInformation || {};
+  const isHrInterview = String(candidateInfo.interviewType || "").toLowerCase().includes("hr");
   const answerAnalysis = data.answerAnalysis || { strengths: [], weaknesses: [], insights: [] };
   const overallPerformance = data.overallPerformance || {};
   const summaryAndNextSteps = data.summaryAndNextSteps || { rationale: [], actionableNextSteps: [] };
-  const scorecard = data.scorecard;
-  const scorecardMetrics = scorecard?.metrics
-    ? [
-        { id: "roleKnowledge", label: "Role knowledge and application", weight: 40 },
-        { id: "problemSolving", label: "Reasoning and problem solving", weight: 35 },
-        { id: "communication", label: "Communication and clarity", weight: 25 },
-      ]
-    : [];
   const hasCompleteScorecard = scorecardMetrics.every(
     (metric) => scorecard.metrics[metric.id].rating != null
   );
@@ -92,6 +105,7 @@ export default function InterviewReport({ report }: { report?: any }) {
             </div>
             <h3 className="text-xl font-bold text-white mb-1">{formatName(candidateInfo.candidateName)}</h3>
             <p className="text-sm text-slate-400 font-medium">{formatName(candidateInfo.jobRole)}</p>
+            {candidateInfo.interviewType && <p className="mt-1 text-xs text-slate-500">{candidateInfo.interviewType}</p>}
           </motion.div>
 
           {/* Performance Card - Replaced Decision with Overall Score */}
@@ -186,7 +200,9 @@ export default function InterviewReport({ report }: { report?: any }) {
                     <p className="text-slate-300 text-sm leading-relaxed">{answerAnalysis.communicationStyle || 'N/A'}</p>
                   </div>
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Problem Solving</h4>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+                      {isHrInterview ? "Judgment & Reflection" : "Problem Solving"}
+                    </h4>
                     <p className="text-slate-300 text-sm leading-relaxed">{answerAnalysis.problemSolvingApproach || 'N/A'}</p>
                   </div>
                   <div>

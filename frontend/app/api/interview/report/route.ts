@@ -30,10 +30,25 @@ type GeneratedAnalysis = {
   metrics: Record<MetricId, MetricAssessment>;
 };
 
-const metricDefinitions: Record<MetricId, { label: string; weight: number }> = {
+const defaultMetricDefinitions: Record<MetricId, { label: string; weight: number }> = {
   roleKnowledge: { label: "Role knowledge and application", weight: 0.4 },
   problemSolving: { label: "Reasoning and problem solving", weight: 0.35 },
   communication: { label: "Communication and clarity", weight: 0.25 },
+};
+
+const getMetricDefinitions = (mode: unknown): Record<MetricId, { label: string; weight: number }> => {
+  if (mode === "HR") {
+    return {
+      roleKnowledge: { label: "Behavioral evidence and relevance", weight: 0.4 },
+      problemSolving: { label: "Judgment, reflection, and actions", weight: 0.35 },
+      communication: { label: "Communication and clarity", weight: 0.25 },
+    };
+  }
+  return {
+    roleKnowledge: { label: "Technical knowledge and application", weight: 0.4 },
+    problemSolving: { label: "Technical reasoning and tradeoffs", weight: 0.35 },
+    communication: { label: "Communication and clarity", weight: 0.25 },
+  };
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -99,7 +114,7 @@ const validateGeneratedAnalysis = (
     return false;
   }
 
-  return (Object.keys(metricDefinitions) as MetricId[]).every((metricId) =>
+  return (Object.keys(defaultMetricDefinitions) as MetricId[]).every((metricId) =>
     validateMetric(metrics[metricId], transcript)
   );
 };
@@ -132,13 +147,17 @@ export async function POST(req: Request) {
     const interviewDetails = isRecord(requestBody.interviewDetails) ? requestBody.interviewDetails : {};
     const candidateName =
       typeof interviewDetails.username === "string" ? interviewDetails.username : "N/A";
+    const metricDefinitions = getMetricDefinitions(interviewDetails.mode);
+    const isHrInterview =
+      typeof interviewDetails.mode === "string" &&
+      interviewDetails.mode.toLocaleLowerCase().startsWith("hr");
     const tabSwitchCount =
       typeof requestBody.tabSwitchCount === "number" && Number.isFinite(requestBody.tabSwitchCount)
         ? Math.max(0, Math.floor(requestBody.tabSwitchCount))
         : 0;
 
     const systemPrompt = `
-You evaluate mock interview answers against a fixed evidence-based rubric.
+You evaluate mock interview answers against an evidence-based rubric for a ${isHrInterview ? "behavioral HR" : "technical"} interview.
 
 Scoring standard (0–4 for each metric):
 - Use null when there is no assessable answer; include no evidence for null.
@@ -149,14 +168,19 @@ Scoring standard (0–4 for each metric):
 - 4 = accurate, relevant, and well-supported.
 
 Metric definitions:
-- roleKnowledge: correctness and relevance of knowledge for the stated role; adapt to the role and do not assume every role is technical.
-- problemSolving: coherence of the approach, consideration of constraints, and support for decisions with reasoning.
+- roleKnowledge: ${isHrInterview
+  ? "behavioral evidence and relevance: evaluate specific examples, the candidate's own contribution, and relevance to the stated role. Do not score technical knowledge."
+  : "technical knowledge and application: correctness and relevance of role-specific knowledge, using only the stated focus areas; do not assume every role is a software role."}
+- problemSolving: ${isHrInterview
+  ? "judgment, reflection, and actions: evaluate the candidate's reasoning, choices, accountability, and learning in the described example."
+  : "technical reasoning and tradeoffs: evaluate coherence of the approach, consideration of constraints, and support for technical decisions."}
 - communication: clarity, organization, and specificity of the answer. Never score accent, personality, emotion, confidence, or camera presence.
 
 Evidence and integrity:
 - Assess only candidate (user) messages, using their zero-based index in the full messages array.
 - For every numeric rating, include at least one exact, contiguous quote copied from that candidate message. Do not invent, paraphrase, or alter quotes.
 - A null rating must have no evidence. Do not infer from unanswered questions.
+- Resume details are context for the interview only and are never evidence for a score; assess only candidate answers.
 - Every strength, weakness, insight, rationale, and next step must be supported by the transcript and align with the metric ratings. Do not invent facts, competencies, or answer content.
 - The overall summary must be a concise synthesis of the supported metrics, not a hiring decision. Recommendations must address evidenced gaps.
 - Mention the provided tab switch count neutrally in overallJustification only when it is greater than zero. It is not a performance metric and must not affect any rating.
@@ -319,6 +343,7 @@ Evidence and integrity:
       candidateInformation: {
         candidateName,
         jobRole: interviewDetails.topic || "N/A",
+        interviewType: isHrInterview ? "HR / behavioral" : "Technical",
         difficulty: interviewDetails.difficulty || "N/A",
         mode: "audio",
         interviewTime: interviewDetails.interviewTime || 0,
@@ -342,13 +367,13 @@ Evidence and integrity:
         actionableNextSteps: generated.actionableNextSteps,
       },
       scorecard: {
-        rubricVersion: "1.0",
+        rubricVersion: "1.1",
         scale: "0-4; metric scores are multiplied by 2.5 to convert to a 0-10 scale",
         weighting: metricDefinitions,
         metrics,
         assessedMetricCount: Object.values(metrics).filter((metric) => metric.rating !== null).length,
         totalMetricCount: Object.keys(metricDefinitions).length,
-        overallFormula: "(roleKnowledge × 0.40 + problemSolving × 0.35 + communication × 0.25) × 2.5",
+        overallFormula: `(${metricDefinitions.roleKnowledge.label} × 0.40 + ${metricDefinitions.problemSolving.label} × 0.35 + ${metricDefinitions.communication.label} × 0.25) × 2.5`,
       },
       scores: {
         ...scores,
