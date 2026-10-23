@@ -1,14 +1,79 @@
 import { systemtPrompt } from "./systemPrompt";
+import { z } from "zod";
+
+const textPartSchema = z.object({
+  type: z.literal("text"),
+  text: z.string().max(12_000),
+});
+const imagePartSchema = z.object({
+  type: z.literal("image_url"),
+  image_url: z.object({
+    url: z
+      .string()
+      .max(1_400_000)
+      .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/),
+  }),
+});
+const messageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.union([
+    z.string().trim().min(1).max(12_000),
+    z
+      .array(z.union([textPartSchema, imagePartSchema]))
+      .min(1)
+      .max(2),
+  ]),
+});
+const requestSchema = z
+  .object({
+    messages: z.array(messageSchema).min(1).max(20),
+    model: z.string().max(120).optional(),
+    stream: z.boolean().optional(),
+    personality: z.string().max(100).optional(),
+    provider: z.string().max(100).optional(),
+  })
+  .superRefine((request, context) => {
+    const imageBytes = request.messages.reduce((total, message) => {
+      if (typeof message.content === "string") return total;
+      return (
+        total +
+        message.content.reduce(
+          (size, part) =>
+            size + (part.type === "image_url" ? part.image_url.url.length : 0),
+          0,
+        )
+      );
+    }, 0);
+
+    if (imageBytes > 2_400_000) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Attached images exceed the conversation upload limit.",
+      });
+    }
+  });
 
 export async function POST(req: Request) {
   try {
+    const requestBody: unknown = await req.json();
+    const parsedRequest = requestSchema.safeParse(requestBody);
+    if (!parsedRequest.success) {
+      return Response.json(
+        {
+          error:
+            "Invalid chat request. Check your message length and image attachments.",
+        },
+        { status: 400 },
+      );
+    }
+
     const {
       messages,
       model,
       stream: isStream,
       personality,
       provider,
-    } = await req.json();
+    } = parsedRequest.data;
     // const lastMessage = messages[messages.length - 1]?.content || "";
 
     console.log("Received messages:", personality, model, provider);
@@ -70,10 +135,10 @@ export async function POST(req: Request) {
         Authorization: `Bearer sk_EAH7ZUybK4BpBtT4q2KEltJks5uxzZZX`,
         "Content-Type": "application/json",
         "HTTP-Referer": `${process.env.SITE_BASE_URL}`,
-        "X-Title": "VOID AI",
+        "X-Title": "Neuraview - AI-Powered Mock Interviews",
       },
       body: JSON.stringify({
-        model: 'openai/gpt-6-luna',
+        model: "openai/gpt-6-luna",
         stream: isStream || false,
         messages: [systemtPrompt, ...messages],
       }),
@@ -114,7 +179,7 @@ export async function POST(req: Request) {
     console.error("API Error:", error);
     return Response.json(
       { error: "Ohh there's something wrong, try again!" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

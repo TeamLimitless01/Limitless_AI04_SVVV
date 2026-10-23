@@ -41,6 +41,9 @@ Create a `.env.local` file in this directory and populate it with your API keys:
 # AI API Keys
 NEXT_PUBLIC_SARVAM_API_KEY=your_sarvam_key
 AI_API_TOKEN_POLLINATIONS=your_pollinations_token
+ADZUNA_APP_ID=your_adzuna_app_id
+ADZUNA_APP_KEY=your_adzuna_app_key
+ADZUNA_COUNTRY=in
 
 # Backend URL (Strapi)
 NEXT_PUBLIC_STRAPI_URL=http://localhost:1337
@@ -49,6 +52,12 @@ NEXT_PUBLIC_STRAPI_URL=http://localhost:1337
 NEXTAUTH_SECRET=your_nextauth_secret
 NEXTAUTH_URL=http://localhost:3000
 ```
+
+Career Hub uses the Adzuna API (not HTML scraping) as its sole job-listing source. Keep the Adzuna credentials server-side
+(do not prefix them with `NEXT_PUBLIC_`). `ADZUNA_COUNTRY` selects the Adzuna
+market and defaults to `in`; supported markets are `at`, `au`, `be`, `br`,
+`ca`, `ch`, `de`, `es`, `fr`, `gb`, `in`, `it`, `mx`, `nl`, `nz`, `pl`, `sg`,
+`us`, and `za`.
 
 ### 3. Run Development Server
 ```bash
@@ -72,4 +81,3 @@ Check out `EXTENSIONS.md` for ideas on how to extend the technical features of t
 ---
 
 Created with ❤️ by **Team Limitless**.
-

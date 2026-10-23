@@ -1,26 +1,64 @@
 import { NextResponse } from "next/server";
 
+type TranscriptMessage = {
+  role: "assistant" | "user";
+  content: string;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const hasEnoughTranscript = (messages: TranscriptMessage[]) => {
+  const substantialMessages = messages.filter((message) => message.content.trim().length >= 15);
+  const interviewerTurns = substantialMessages.filter((message) => message.role === "assistant").length;
+  const candidateTurns = substantialMessages.filter((message) => message.role === "user").length;
+  const transcriptLength = substantialMessages.reduce(
+    (total, message) => total + message.content.trim().length,
+    0,
+  );
+  return interviewerTurns >= 2 && candidateTurns >= 2 && transcriptLength >= 180;
+};
+
 export async function POST(req: Request) {
   try {
-    const { messages, interviewDetails } = await req.json();
-
-    if (!messages || !Array.isArray(messages)) {
+    const requestBody: unknown = await req.json();
+    if (!isRecord(requestBody) || !Array.isArray(requestBody.messages)) {
       return NextResponse.json({ error: "Invalid messages array" }, { status: 400 });
     }
 
-    // Extract transcript from either object or string array elements
-    const transcript = messages.map((m: any, i: number) => {
-      if (typeof m === 'object') {
-        return `${m.role === 'assistant' ? 'AI' : 'Candidate'}: ${m.content}`;
-      }
-      return `Message ${i + 1}: ${m}`;
-    }).join('\n');
+    const messages = requestBody.messages.filter(
+      (message): message is TranscriptMessage =>
+        isRecord(message) &&
+        (message.role === "assistant" || message.role === "user") &&
+        typeof message.content === "string",
+    );
+    if (messages.length !== requestBody.messages.length) {
+      return NextResponse.json(
+        { error: "Each message must include a valid role and text content." },
+        { status: 400 },
+      );
+    }
+    if (!hasEnoughTranscript(messages)) {
+      return NextResponse.json(
+        { error: "Complete at least two interview questions and answers before generating improvements." },
+        { status: 422 },
+      );
+    }
+
+    const interviewDetails = isRecord(requestBody.interviewDetails) ? requestBody.interviewDetails : {};
+    const getDetail = (key: string, fallback: string) => {
+      const value = interviewDetails[key];
+      return typeof value === "string" && value.trim() ? value.trim().slice(0, 200) : fallback;
+    };
+    const transcript = messages
+      .map((message) => `${message.role === "assistant" ? "Interviewer" : "Candidate"}: ${message.content.trim()}`)
+      .join("\n");
 
     const model = 'openai/gpt-6-luna'; // Using the standard AI model for this project
     const API_URI = "https://gen.pollinations.ai/v1/chat/completions";
 
     const prompt = `
-You are an expert technical interviewer and career coach. Review the following interview transcript from a recent ${interviewDetails?.mode || 'Technical'} interview for the role of ${interviewDetails?.topic || 'Candidate'} focusing on ${interviewDetails?.skills || 'General Skills'}.
+You are an expert technical interviewer and career coach. Review the following interview transcript from a recent ${getDetail("mode", "Technical")} interview for the role of ${getDetail("topic", "Candidate")} focusing on ${getDetail("skills", "General Skills")}.
 
 INTERVIEW TRANSCRIPT:
 ${transcript}

@@ -6,28 +6,45 @@ import {
   CheckCircle2, 
   Briefcase, 
   MapPin, 
-  DollarSign, 
   XCircle, 
   Search, 
   FileText, 
-  IndianRupee,
+  DollarSign,
   ChevronLeft,
   Sparkles,
   Info,
   X,
-  Target
+  Target,
+  FileCheck2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 
+type JobListing = {
+  id: string;
+  title: string;
+  description: string;
+  redirect_url: string;
+  created: string;
+  company: { display_name?: string };
+  location: { display_name?: string };
+  category: { label?: string };
+  salary_min?: number;
+  salary_max?: number;
+};
+
 export default function CareerHubPage() {
   const [file, setFile] = useState<File | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [skills, setSkills] = useState<string[]>([]);
   const [isSearchingJobs, setIsSearchingJobs] = useState(false);
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<JobListing[]>([]);
+  const [jobRole, setJobRole] = useState("");
+  const [location, setLocation] = useState("");
+  const [currency, setCurrency] = useState("INR");
+  const [hasSearched, setHasSearched] = useState(false);
   
   // AI Insights State
   const [summary, setSummary] = useState("");
@@ -55,40 +72,64 @@ export default function CareerHubPage() {
       if (!res.ok) throw new Error("Resume parse pipeline failed");
 
       const data = await res.json();
+      if (!Array.isArray(data.skills)) {
+        throw new Error("Resume analysis did not return a valid skills list.");
+      }
       setSkills(data.skills);
+      setJobRole(typeof data.jobRole === "string" ? data.jobRole : "");
       setSummary(data.summary);
       setImprovements(data.improvements);
       
       toast.success("Skills & analysis completed successfully!", { id: loadingToast });
       
       // Auto trigger job search with the extracted skills
-      fetchJobs(data.skills);
+      fetchJobs(
+        data.skills,
+        typeof data.jobRole === "string" ? data.jobRole : "",
+        location,
+      );
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error("Failed to extract data: " + error.message, { id: loadingToast });
+      toast.error(
+        "Failed to extract data: " + (error instanceof Error ? error.message : "Unknown error"),
+        { id: loadingToast },
+      );
     } finally {
       setIsExtracting(false);
     }
   };
 
-  const fetchJobs = async (searchSkills: string[]) => {
+  const fetchJobs = async (
+    searchSkills: string[],
+    searchRole = jobRole,
+    searchLocation = location,
+  ) => {
     setIsSearchingJobs(true);
-    const loadingToast = toast.loading("Searching for global matches...");
+    setHasSearched(true);
+    const loadingToast = toast.loading("Searching Adzuna for relevant roles...");
     try {
       const res = await fetch("/api/jobs/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skills: searchSkills }),
+        body: JSON.stringify({
+          skills: searchSkills,
+          jobRole: searchRole,
+          location: searchLocation,
+        }),
       });
 
-      if (!res.ok) throw new Error("Job search API failed");
-      const data = await res.json();
-      setJobs(data.jobs || []);
+      const data: { error?: string; jobs?: JobListing[]; currency?: string } = await res.json();
+      if (!res.ok) throw new Error(data.error || "Job search failed.");
+      setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+      if (data.currency) setCurrency(data.currency);
       toast.success(`Found ${data.jobs?.length || 0} matching roles!`, { id: loadingToast });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error("Failed to query jobs database.", { id: loadingToast });
+      toast.error(
+        error instanceof Error ? error.message : "Failed to search Adzuna.",
+        { id: loadingToast },
+      );
     } finally {
       setIsSearchingJobs(false);
     }
@@ -210,8 +251,14 @@ export default function CareerHubPage() {
             Smart <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Career Hub</span>
           </h1>
           <p className="text-slate-400 text-lg md:text-xl max-w-3xl leading-relaxed">
-            Upload your resume and let our deep AI stack extract your core competencies, instantly matching you with global roles.
+            Upload your resume to find relevant opportunities from Adzuna, using your target role, skills, and preferred location.
           </p>
+          <Link
+            href="/ats-analyzer"
+            className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl border border-indigo-400/25 bg-indigo-500/10 px-4 py-2.5 text-sm font-bold text-indigo-200 transition-colors hover:bg-indigo-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+          >
+            <FileCheck2 className="h-4 w-4" /> Get an ATS-style resume review
+          </Link>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -246,6 +293,20 @@ export default function CareerHubPage() {
                     <span className="text-sm text-slate-500 mt-2">Maximum file size: 5MB</span>
                   </>
                 )}
+              </label>
+
+              <label className="block mt-6">
+                <span className="block text-sm font-semibold text-slate-300 mb-2">
+                  Preferred location <span className="text-slate-500">(optional)</span>
+                </span>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(event) => setLocation(event.target.value)}
+                  maxLength={100}
+                  placeholder="e.g. Bengaluru"
+                  className="w-full h-12 rounded-xl border border-white/10 bg-white/5 px-4 text-white placeholder:text-slate-500 focus:border-indigo-400 focus:outline-none"
+                />
               </label>
 
               <Button
@@ -300,11 +361,11 @@ export default function CareerHubPage() {
               <div className="flex items-center justify-between mb-12">
                 <h2 className="text-3xl font-black text-white flex items-center gap-3">
                   <Briefcase className="w-8 h-8 text-cyan-400" /> 
-                  Global Matches {jobs.length > 0 && `(${jobs.length})`}
+                  Adzuna Matches {jobs.length > 0 && `(${jobs.length})`}
                 </h2>
                 {isSearchingJobs && (
                   <div className="flex items-center gap-2 text-indigo-400 font-medium animate-pulse text-sm">
-                    <div className="w-5 h-5 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" /> Fetching real-time listings...
+                    <div className="w-5 h-5 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" /> Searching current listings...
                   </div>
                 )}
               </div>
@@ -312,8 +373,14 @@ export default function CareerHubPage() {
               {jobs.length === 0 && !isSearchingJobs && (
                  <div className="h-[400px] flex flex-col items-center justify-center text-center opacity-40">
                     <Briefcase className="w-20 h-20 text-slate-500 mb-6" />
-                    <p className="text-2xl font-bold text-slate-400 mb-2">Waiting for skill insights</p>
-                    <p className="text-slate-500 max-w-sm mx-auto">Upload your resume to activate automated targeted job search via Adzuna</p>
+                    <p className="text-2xl font-bold text-slate-400 mb-2">
+                      {hasSearched ? "No matching jobs found" : "Waiting for skill insights"}
+                    </p>
+                    <p className="text-slate-500 max-w-sm mx-auto">
+                      {hasSearched
+                        ? "Try a broader target role or remove the location filter, then refresh your matches."
+                        : "Upload your resume to search Adzuna listings using your skills and target role."}
+                    </p>
                  </div>
               )}
 
@@ -345,8 +412,14 @@ export default function CareerHubPage() {
                             <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {job.location.display_name}</span>
                         )}
                         {(job.salary_min || job.salary_max) && (
-                            <span className="flex items-center gap-1.5 text-emerald-400"><IndianRupee className="w-4 h-4" /> 
-                            {job.salary_min ? `${job.salary_min}` : ''} {job.salary_max ? `- ${job.salary_max}` : ''}
+                            <span className="flex items-center gap-1.5 text-emerald-400"><DollarSign className="w-4 h-4" />
+                            {job.salary_min
+                              ? new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(job.salary_min)
+                              : ""}
+                            {job.salary_min && job.salary_max ? " - " : ""}
+                            {job.salary_max
+                              ? new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(job.salary_max)
+                              : ""}
                             </span>
                         )}
                     </div>

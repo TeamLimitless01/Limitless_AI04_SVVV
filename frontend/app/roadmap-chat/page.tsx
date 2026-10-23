@@ -19,7 +19,8 @@ import {
   XCircle, 
   Search,
   ChevronLeft,
-  IndianRupee
+  IndianRupee,
+  FileCheck2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,24 @@ const ServicesPage = () => {
       href: "/create-interview",
       cta: "Start Practicing"
     },
+    // {
+    //   id: "summarize",
+    //   title: "AI Summarizer",
+    //   description: "Transform long PDFs and notes into concise, actionable summaries and interactive quizzes.",
+    //   icon: FileText,
+    //   color: "orange",
+    //   href: "/summarize",
+    //   cta: "Summarize Now"
+    // },
+    {
+      id: "ats-analyzer",
+      title: "ATS Resume Analyzer",
+      description: "Get an estimated ATS-style resume review with score bars and practical suggestions. Add a job description for a tailored match.",
+      icon: FileCheck2,
+      color: "emerald",
+      href: "/ats-analyzer",
+      cta: "Analyze My Resume",
+    },
     {
       id: "roadmap",
       title: "Growth Roadmaps",
@@ -60,15 +79,6 @@ const ServicesPage = () => {
       href: "/chat",
       cta: "Chat with Neura"
     },
-    // {
-    //   id: "summarize",
-    //   title: "AI Summarizer",
-    //   description: "Transform long PDFs and notes into concise, actionable summaries and interactive quizzes.",
-    //   icon: FileText,
-    //   color: "orange",
-    //   href: "/summarize",
-    //   cta: "Summarize Now"
-    // },
     {
       id: "jobs",
       title: "Career Hub",

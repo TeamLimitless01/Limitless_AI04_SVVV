@@ -1,254 +1,349 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
-const STORAGE_KEY = "ai-chat-history";
-const MAX_MESSAGES = 100; // Limit to prevent localStorage from getting too large
+const STORAGE_KEY = "neuraview-chat-history-v2";
+const LEGACY_STORAGE_KEY = "ai-chat-history";
+const MAX_SESSIONS = 30;
+const MAX_MESSAGES_PER_SESSION = 60;
+
+export type ChatContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string | ChatContentPart[];
+  timestamp: Date;
+};
+
+export type ChatSession = {
+  id: string;
+  title: string;
+  updatedAt: Date;
+  messages: ChatMessage[];
+};
+
+function messageText(content: ChatMessage["content"]): string {
+  if (typeof content === "string") return content;
+  return content
+    .filter((part): part is Extract<ChatContentPart, { type: "text" }> => part.type === "text")
+    .map((part) => part.text)
+    .join(" ")
+    .trim();
+}
+
+function normalizeSessions(value: unknown): ChatSession[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (session): session is ChatSession =>
+        Boolean(
+          session &&
+          typeof session.id === "string" &&
+          typeof session.title === "string" &&
+          Array.isArray(session.messages),
+        ),
+    )
+    .map((session) => ({
+      ...session,
+      updatedAt: Number.isNaN(new Date(session.updatedAt).getTime()) ? new Date() : new Date(session.updatedAt),
+      messages: session.messages
+        .filter(
+          (message: ChatMessage) =>
+            message &&
+            typeof message.id === "string" &&
+            (message.role === "user" || message.role === "assistant") &&
+            (typeof message.content === "string" || Array.isArray(message.content)),
+        )
+        .map((message: ChatMessage) => ({
+          ...message,
+          timestamp: Number.isNaN(new Date(message.timestamp).getTime())
+            ? new Date()
+            : new Date(message.timestamp),
+        }))
+        .slice(-MAX_MESSAGES_PER_SESSION),
+    }))
+    .filter((session) => session.messages.length > 0)
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    .slice(0, MAX_SESSIONS);
+}
+
+function createId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 export function useChat() {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
-  // Load messages from localStorage on initialization
   useEffect(() => {
     try {
-      const savedMessages = localStorage.getItem(STORAGE_KEY);
-      if (savedMessages) {
-        const parsedMessages = JSON.parse(savedMessages);
-        // Convert timestamp strings back to Date objects
-        const messagesWithDates = parsedMessages.map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp),
-        }));
-        setMessages(messagesWithDates);
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const loadedSessions = normalizeSessions(JSON.parse(stored));
+        setSessions(loadedSessions);
+        setActiveSessionId(loadedSessions[0]?.id ?? null);
+      } else {
+        const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacy) {
+          const oldMessages = JSON.parse(legacy) as ChatMessage[];
+          if (Array.isArray(oldMessages) && oldMessages.length > 0) {
+            const migrated = normalizeSessions([{
+              id: createId(),
+              title: "Previous conversation",
+              updatedAt: new Date(),
+              messages: oldMessages,
+            }]);
+            setSessions(migrated);
+            setActiveSessionId(migrated[0]?.id ?? null);
+          }
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+        }
       }
     } catch (error) {
-      console.error("Failed to load chat history:", error);
-      // Clear corrupted data
-      localStorage.removeItem(STORAGE_KEY);
+      console.error("Failed to load saved chats:", error);
+      toast.error("Saved chat history could not be loaded.");
+    } finally {
+      setIsReady(true);
     }
   }, []);
 
-  // Save messages to localStorage whenever messages change
   useEffect(() => {
-    if (messages.length > 0) {
+    if (!isReady) return;
+    const timeoutId = window.setTimeout(() => {
       try {
-        // Keep only the most recent messages to prevent storage overflow
-        const messagesToSave = messages.slice(-MAX_MESSAGES);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(messagesToSave));
+        if (sessions.length > 0) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions.slice(0, MAX_SESSIONS)));
+        } else {
+          localStorage.removeItem(STORAGE_KEY);
+        }
       } catch (error) {
         console.error("Failed to save chat history:", error);
-        toast("please delete some messages or clear history.");
+        toast.error("Chat history could not be saved. Try removing older conversations.");
       }
-    }
-  }, [messages, toast]);
+    }, 500);
+    return () => window.clearTimeout(timeoutId);
+  }, [isReady, sessions]);
 
-  const sendMessage = useCallback(
-    async (content: any): Promise<void> => {
-      let userMessage: any;
-
-      if (!content) {
-        return;
-      }
-      userMessage = Array.isArray(content)
-        ? {
-            id: crypto.randomUUID(),
-            role: "user",
-            content: [...content],
-            timestamp: new Date(),
-          }
-        : {
-            id: crypto.randomUUID(),
-            role: "user",
-            content: content.trim(),
-            timestamp: new Date(),
-          };
-
-      setMessages((prev) => [...prev, userMessage]);
-      setIsLoading(true);
-
-      const conversationHistory = [...messages, userMessage];
-      const recentHistory = conversationHistory.slice(-20);
-
-      const apiMessages = recentHistory.map(({ role, content }) => ({
-        role,
-        content,
-      }));
-
-      try {
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: apiMessages,
-            model: localStorage.getItem("model") || "",
-            stream: true,
-          }),
-        });
-
-        if (!response.ok || !response.body) {
-          toast("Something went wrong...");
-          return;
-        }
-
-        const contentType = response.headers.get("Content-Type") || "";
-
-        console.log("Response Content-Type:", contentType);
-
-        //  if (!contentType.includes("text/plain")) {
-
-        //         const data = await response.json();
-
-        //           const aiMessage: Message = {
-        //             id: crypto.randomUUID(),
-        //             role: "assistant",
-        //             content: data.message,
-        //             timestamp: new Date(),
-        //             isImage: true,
-        //             imageUrl: data.imageUrl,
-        //             imagePrompt: data.imagePrompt,
-        //           };
-
-        //           setMessages((prev) => [...prev, aiMessage]);
-
-        //         setIsLoading(false);
-        //         return;
-        //       }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let aiContent = "";
-
-        const aiMessage: any = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "",
-          timestamp: new Date(),
-        };
-
-        setMessages((prev) => [...prev, aiMessage]);
-
-        let buffer = "";
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-
-          let lines = buffer.split("\n");
-
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed.startsWith("data:")) continue;
-
-            const jsonStr = trimmed.replace("data:", "").trim();
-
-            if (jsonStr === "[DONE]") {
-              buffer = "";
-              break;
-            }
-
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const contentPiece = parsed.choices?.[0]?.delta?.content;
-
-              if (contentPiece) {
-                aiContent += contentPiece;
-
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const lastIndex = updated.findLastIndex(
-                    (m) => m.role === "assistant"
-                  );
-                  if (lastIndex !== -1) {
-                    updated[lastIndex] = {
-                      ...updated[lastIndex],
-                      content: aiContent,
-                    };
-                  }
-                  return updated;
-                });
-
-                await new Promise((r) => setTimeout(r, 10));
-              }
-            } catch (err) {
-              console.error("❌ Stream parse error:", jsonStr, err);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Chat error:", error);
-        toast("Oops! Something went wrong. Please try again later.");
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [messages, toast]
+  const activeSession = useMemo(
+    () => sessions.find((session) => session.id === activeSessionId) ?? null,
+    [activeSessionId, sessions],
   );
+  const messages = activeSession?.messages ?? [];
+
+  const createNewChat = useCallback(() => {
+    if (isLoading) return;
+    setActiveSessionId(null);
+  }, [isLoading]);
+
+  const selectSession = useCallback((id: string) => {
+    if (isLoading) return;
+    setActiveSessionId(id);
+  }, [isLoading]);
+
+  const deleteSession = useCallback((id: string) => {
+    const remaining = sessions.filter((session) => session.id !== id);
+    setSessions(remaining);
+    if (activeSessionId === id) setActiveSessionId(remaining[0]?.id ?? null);
+  }, [activeSessionId, sessions]);
+
+  const sendMessage = useCallback(async (content: string | ChatContentPart[]): Promise<void> => {
+    if (isLoading) return;
+    const text = messageText(content);
+    if (text.length > 12_000) {
+      toast.error("Keep your message under 12,000 characters.");
+      return;
+    }
+    if (typeof content === "string" && !content.trim()) return;
+    if (Array.isArray(content) && !text && !content.some((part) => part.type === "image_url")) return;
+
+    const sessionId = activeSessionId ?? createId();
+    const userMessage: ChatMessage = {
+      id: createId(),
+      role: "user",
+      content,
+      timestamp: new Date(),
+    };
+    const conversationHistory = activeSession?.messages ?? [];
+    const recentHistory = [...conversationHistory, userMessage].slice(-20);
+    const imageSize = (message: ChatMessage) =>
+      Array.isArray(message.content)
+        ? message.content.reduce(
+            (total, part) => total + (part.type === "image_url" ? part.image_url.url.length : 0),
+            0,
+          )
+        : 0;
+    while (recentHistory.length > 1 && recentHistory.reduce((total, message) => total + imageSize(message), 0) > 2_300_000) {
+      recentHistory.shift();
+    }
+    const apiMessages = recentHistory.map(({ role, content: messageContent }) => ({
+      role,
+      content: messageContent,
+    }));
+
+    setActiveSessionId(sessionId);
+    setSessions((previous) => {
+      const existing = previous.find((session) => session.id === sessionId);
+      const nextMessages = [...(existing?.messages ?? []), userMessage].slice(-MAX_MESSAGES_PER_SESSION);
+      const title = existing?.title || text.slice(0, 52) || "Image question";
+      const nextSession: ChatSession = {
+        id: sessionId,
+        title,
+        updatedAt: new Date(),
+        messages: nextMessages,
+      };
+      return [nextSession, ...previous.filter((session) => session.id !== sessionId)].slice(0, MAX_SESSIONS);
+    });
+    setIsLoading(true);
+
+    let assistantMessageId: string | null = null;
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: apiMessages,
+          model: localStorage.getItem("model") || "",
+          stream: true,
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || "Neura could not respond. Please try again.");
+      }
+
+      const assistantMessage: ChatMessage = {
+        id: createId(),
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+      };
+      assistantMessageId = assistantMessage.id;
+      setSessions((previous) => previous.map((session) =>
+        session.id === sessionId
+          ? {
+              ...session,
+              updatedAt: new Date(),
+              messages: [...session.messages, assistantMessage].slice(-MAX_MESSAGES_PER_SESSION),
+            }
+          : session,
+      ));
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let assistantContent = "";
+
+      const updateAssistant = (piece: string) => {
+        assistantContent += piece;
+        setSessions((previous) => previous.map((session) =>
+          session.id === sessionId
+            ? {
+                ...session,
+                updatedAt: new Date(),
+                messages: session.messages.map((message) =>
+                  assistantMessageId && message.id === assistantMessageId
+                    ? { ...message, content: assistantContent }
+                    : message,
+                ),
+              }
+            : session,
+        ));
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value, { stream: !done });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        if (done && buffer) {
+          lines.push(buffer);
+          buffer = "";
+        }
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const json = trimmed.slice(5).trim();
+          if (!json || json === "[DONE]") continue;
+          try {
+            const parsed = JSON.parse(json);
+            const piece = parsed.choices?.[0]?.delta?.content;
+            if (typeof piece === "string") updateAssistant(piece);
+          } catch (error) {
+            console.error("Could not parse a streamed chat response chunk:", error);
+          }
+        }
+        if (done) break;
+      }
+    } catch (error) {
+      console.error("Chat request failed:", error);
+      if (assistantMessageId) {
+        setSessions((previous) => previous.map((session) =>
+          session.id === sessionId
+            ? { ...session, messages: session.messages.filter((message) => message.id !== assistantMessageId) }
+            : session,
+        ));
+      }
+      toast.error(error instanceof Error ? error.message : "Unable to send your message.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeSession, activeSessionId, isLoading]);
 
   const clearMessages = useCallback(() => {
-    setMessages([]);
-    localStorage.removeItem(STORAGE_KEY);
-    toast("All conversation history has been deleted.");
-  }, [toast]);
+    if (!activeSessionId) return;
+    setSessions((previous) => previous.filter((session) => session.id !== activeSessionId));
+    setActiveSessionId(null);
+    toast.success("Conversation removed from chat history.");
+  }, [activeSessionId]);
 
   const exportHistory = useCallback(() => {
     try {
       const historyText = messages
-        .map((msg) => {
-          const timestamp = msg.timestamp.toLocaleString();
-          const role = msg.role === "user" ? "You" : "AI Assistant";
-          return `[${timestamp}] ${role}: ${msg.content}`;
+        .map((message) => {
+          const timestamp = message.timestamp.toLocaleString();
+          const role = message.role === "user" ? "You" : "Neura";
+          const text = messageText(message.content);
+          const imageNote = Array.isArray(message.content) && message.content.some((part) => part.type === "image_url")
+            ? "\n[Image attached]"
+            : "";
+          return `[${timestamp}] ${role}: ${text}${imageNote}`;
         })
         .join("\n\n");
-
       const blob = new Blob([historyText], { type: "text/plain" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ai-chat-history-${
-        new Date().toISOString().split("T")[0]
-      }.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `neuraview-chat-${new Date().toISOString().slice(0, 10)}.txt`;
+      anchor.click();
       URL.revokeObjectURL(url);
-
-      toast("Your conversation history has been downloaded.");
+      toast.success("Conversation downloaded.");
     } catch (error) {
-      toast("Unable to export conversation history.");
-    }
-  }, [messages, toast]);
-
-  const getStorageInfo = useCallback(() => {
-    try {
-      const savedMessages = localStorage.getItem(STORAGE_KEY);
-      const sizeInBytes = savedMessages ? new Blob([savedMessages]).size : 0;
-      const sizeInKB = Math.round(sizeInBytes / 1024);
-      return {
-        messageCount: messages.length,
-        storageSize: sizeInKB,
-        isNearLimit: messages.length > MAX_MESSAGES * 0.8,
-      };
-    } catch {
-      return {
-        messageCount: messages.length,
-        storageSize: 0,
-        isNearLimit: false,
-      };
+      console.error("Failed to export chat history:", error);
+      toast.error("Unable to export this conversation.");
     }
   }, [messages]);
 
   return {
     messages,
+    sessions,
+    activeSessionId,
     isLoading,
+    isReady,
     sendMessage,
+    createNewChat,
+    selectSession,
+    deleteSession,
     clearMessages,
     exportHistory,
-    getStorageInfo,
   };
 }

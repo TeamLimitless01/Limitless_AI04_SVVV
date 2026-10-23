@@ -19,6 +19,48 @@ import InterviewReport from "./ReportUi";
 import { jsPDF } from "jspdf";
 import toast from "react-hot-toast";
 
+function parseInterviewReport(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== "string" && (!value || typeof value !== "object")) return null;
+  try {
+    const report: unknown = typeof value === "string" ? JSON.parse(value) : value;
+    if (!report || typeof report !== "object" || Array.isArray(report)) return null;
+
+    const record = report as Record<string, unknown>;
+    const knownSections = [
+      "scores",
+      "scorecard",
+      "candidateInformation",
+      "answerAnalysis",
+      "overallPerformance",
+      "summaryAndNextSteps",
+    ];
+    return knownSections.some((section) => {
+      const content = record[section];
+      return content && typeof content === "object" && Object.keys(content).length > 0;
+    }) ? record : null;
+  } catch {
+    return null;
+  }
+}
+
+function hasEnoughTranscript(conversation: unknown): boolean {
+  if (!Array.isArray(conversation)) return false;
+  const messages = conversation.filter(
+    (message): message is { role: string; content: string } =>
+      Boolean(
+        message &&
+        typeof message === "object" &&
+        (message.role === "assistant" || message.role === "user") &&
+        typeof message.content === "string" &&
+        message.content.trim().length >= 15,
+      ),
+  );
+  const interviewerTurns = messages.filter((message) => message.role === "assistant").length;
+  const candidateTurns = messages.filter((message) => message.role === "user").length;
+  const transcriptLength = messages.reduce((total, message) => total + message.content.trim().length, 0);
+  return interviewerTurns >= 2 && candidateTurns >= 2 && transcriptLength >= 180;
+}
+
 function ReportsContent() {
   const { data: user } = useSession<any>();
   const router = useRouter();
@@ -47,41 +89,39 @@ function ReportsContent() {
         (i: any) => i.documentId === interviewId || i.id?.toString() === interviewId
       );
 
-      if (interview && interview.report) {
-        try {
-          const parsed = typeof interview.report === "string" ? JSON.parse(interview.report) : interview.report;
-
-          // Auto-open if not already opened this ID on this page mount
-          if (lastProcessedId.current !== interviewId) {
-            setSelectedReport(parsed);
-            lastProcessedId.current = interviewId;
-          }
-          // If already opened this ID, but fresh data just arrived that differs from what we show, update it
-          else if (selectedReport && JSON.stringify(selectedReport) !== JSON.stringify(parsed)) {
-            setSelectedReport(parsed);
-          }
-        } catch (e) {
-          console.error("Invalid report format", e);
+      if (interview) {
+        const parsed = parseInterviewReport(interview.report);
+        const transcriptReady = hasEnoughTranscript(interview.conversation);
+        const availableReport = parsed && transcriptReady ? parsed : null;
+        if (lastProcessedId.current !== interviewId) {
+          setSelectedReport(availableReport);
+          lastProcessedId.current = interviewId;
+        } else if (JSON.stringify(selectedReport) !== JSON.stringify(availableReport)) {
+          setSelectedReport(availableReport);
         }
       }
     }
   }, [interviewId, data, selectedReport]);
 
   const handleGenerateNotes = async (interview: any) => {
+    if (!parseInterviewReport(interview.report)) {
+      toast.error("Interview notes are available after a report has been generated.");
+      return;
+    }
+    if (!hasEnoughTranscript(interview.conversation)) {
+      toast.error("Complete at least two interview questions and answers before generating improvements.");
+      return;
+    }
+
     setIsGeneratingNotes(interview.id || interview.documentId);
     try {
-      if (!interview.conversation || interview.conversation.length === 0) {
-        toast.error("No conversation logs found for this interview.");
-        return;
-      }
-
       const toastId = toast.loading("AI is generating notes...");
 
       const response = await fetch("/api/interview/notes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: interview.conversation?.map((c: any) => c.content),
+          messages: interview.conversation,
           interviewDetails: {
             topic: interview.details,
             skills: interview.skills,
@@ -90,116 +130,204 @@ function ReportsContent() {
         }),
       });
 
-      if (!response.ok) throw new Error("API failed");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || "Could not generate interview notes.");
+      }
       const data = await response.json();
-
-      const candidateName = interview?.candidateName || "Candidate";
+      if (!Array.isArray(data.notes) || data.notes.length === 0) {
+        throw new Error("No interview questions were found to include in the notes.");
+      }
 
       const doc = new jsPDF();
-      let y = 30;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const left = 18;
+      const right = pageWidth - 18;
+      const contentWidth = right - left;
+      const bottom = pageHeight - 20;
+      let y = 0;
 
-      // Header strip (Branding)
-      doc.setFillColor(30, 64, 175); // Dark blue theme
-      doc.rect(0, 0, 210, 40, 'F');
+      const addPageHeader = (continued: boolean) => {
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, pageWidth, 29, "F");
+        doc.setFillColor(59, 130, 246);
+        doc.rect(0, 29, pageWidth, 1.2, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(17);
+        doc.text("NeuraView", left, 13);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(191, 219, 254);
+        doc.text(continued ? "INTERVIEW IMPROVEMENT NOTES · CONTINUED" : "INTERVIEW IMPROVEMENT NOTES", left, 21);
+        y = 40;
+      };
 
-      // Branding text (White)
-      doc.setTextColor(255, 255, 255);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(26);
-      doc.text("NeuraView", 15, 24);
+      const addPage = () => {
+        doc.addPage();
+        addPageHeader(true);
+      };
 
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text("AI Interview Intelligence", 15, 32);
+      const ensureSpace = (height: number) => {
+        if (y + height > bottom) addPage();
+      };
 
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "italic");
-      doc.text("", 195, 24, { align: "right" });
+      const addSectionHeading = (text: string, color: [number, number, number]) => {
+        ensureSpace(12);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(...color);
+        doc.text(text.toUpperCase(), left, y);
+        y += 6;
+      };
 
-      y = 55;
+      const addParagraph = (
+        text: string,
+        options: {
+          fontSize?: number;
+          color?: [number, number, number];
+          fontStyle?: "normal" | "italic" | "bold";
+          indent?: number;
+          gap?: number;
+        } = {},
+      ) => {
+        const value = typeof text === "string" && text.trim() ? text.trim() : "No response recorded.";
+        const fontSize = options.fontSize ?? 10;
+        const indent = options.indent ?? 0;
+        const gap = options.gap ?? 4;
+        doc.setFont("helvetica", options.fontStyle ?? "normal");
+        doc.setFontSize(fontSize);
+        doc.setTextColor(...(options.color ?? [71, 85, 105]));
+        const lines = doc.splitTextToSize(value, contentWidth - indent) as string[];
+        const paragraphLineHeight = fontSize * 0.48;
 
-      // Info box for Candidate
-      doc.setFillColor(245, 247, 250);
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(15, y, 180, 30, 'FD');
-
-      doc.setFontSize(11);
-      doc.setTextColor(50, 50, 50);
-      doc.setFont("helvetica", "bold");
-      doc.text(`Candidate:`, 20, y + 9);
-      doc.setFont("helvetica", "normal");
-      doc.text(candidateName, 45, y + 9);
-
-      doc.setFont("helvetica", "bold");
-      doc.text(`Role:`, 20, y + 18);
-      doc.setFont("helvetica", "normal");
-      doc.text(interview.details || "Untitled Assessment", 45, y + 18);
-
-      doc.setFont("helvetica", "bold");
-      doc.text(`Skills Focus:`, 20, y + 27);
-      doc.setFont("helvetica", "normal");
-      doc.text(interview.skills || "N/A", 45, y + 27);
-
-      y += 45;
-      doc.setTextColor(30, 30, 30);
-
-      if (data.notes && Array.isArray(data.notes)) {
-        data.notes.forEach((note: any, index: number) => {
-          if (y > 260) {
-            doc.addPage();
-            y = 20;
-          }
-          doc.setFontSize(14);
-          doc.setFont("helvetica", "bold");
-          const questionLines = doc.splitTextToSize(`Q${index + 1}: ${note.question}`, 180);
-          doc.text(questionLines, 15, y);
-          y += (questionLines.length * 7) + 6;
-
-          doc.setFontSize(12);
-
-          if (note.candidate_answer) {
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(30, 30, 30);
-            doc.text("Your Answer:", 15, y);
-            y += 6;
-            doc.setFont("helvetica", "italic");
-            doc.setTextColor(90, 90, 90);
-            const userAnsLines = doc.splitTextToSize(note.candidate_answer, 180);
-            doc.text(userAnsLines, 15, y);
-            y += (userAnsLines.length * 6) + 8;
-            if (y > 270) { doc.addPage(); y = 20; }
-          }
-
-          doc.setTextColor(30, 30, 30);
-          doc.setFont("helvetica", "normal");
-          if (note.key_points && note.key_points.length > 0) {
-            doc.setFont("helvetica", "bold");
-            doc.text("Key Points:", 15, y);
-            y += 6;
-            doc.setFont("helvetica", "normal");
-            note.key_points.forEach((point: string) => {
-              if (y > 275) { doc.addPage(); y = 20; }
-              const pointLines = doc.splitTextToSize(`• ${point}`, 170);
-              doc.text(pointLines, 20, y);
-              y += (pointLines.length * 6);
-            });
-            y += 5;
-          }
-
-          if (note.suggested_answer_summary) {
-            if (y > 265) { doc.addPage(); y = 20; }
-            doc.setFont("helvetica", "bold");
-            doc.text("Ideal Answer Summary:", 15, y);
-            y += 6;
-            doc.setFont("helvetica", "italic");
-            const answerLines = doc.splitTextToSize(note.suggested_answer_summary, 180);
-            doc.text(answerLines, 15, y);
-            y += (answerLines.length * 6) + 15;
-          }
+        lines.forEach((line) => {
+          ensureSpace(paragraphLineHeight + 1);
+          doc.text(line, left + indent, y);
+          y += paragraphLineHeight;
         });
-      } else {
-        doc.setFontSize(12);
-        doc.text("No questions detected or could not extract notes.", 15, y);
+        y += gap;
+      };
+
+      addPageHeader(false);
+
+      const title = String(interview.details || "Interview Practice Session").slice(0, 240);
+      const titleLines = doc.splitTextToSize(title, contentWidth - 10) as string[];
+      const candidateLines = doc.splitTextToSize(
+        `Candidate: ${String(interview.candidateName || "Candidate").slice(0, 80)}`,
+        contentWidth / 2 - 8,
+      ) as string[];
+      const dateLines = doc.splitTextToSize(
+        `Date: ${interview.createdAt && !Number.isNaN(new Date(interview.createdAt).getTime())
+          ? new Date(interview.createdAt).toLocaleDateString()
+          : "Date unavailable"}`,
+        contentWidth / 2 - 8,
+      ) as string[];
+      const roleLines = doc.splitTextToSize(
+        `Mode: ${String(interview.mode || "Technical").slice(0, 50)}   |   Skills: ${String(interview.skills || "General").slice(0, 220)}`,
+        contentWidth - 10,
+      ) as string[];
+      const titleY = 14;
+      const candidateY = titleY + titleLines.length * 5.5 + 3;
+      const roleY = candidateY + Math.max(candidateLines.length, dateLines.length) * 4 + 3;
+      const metadataHeight = roleY + roleLines.length * 4 + 3;
+      doc.setFillColor(239, 246, 255);
+      doc.setDrawColor(191, 219, 254);
+      ensureSpace(metadataHeight + 8);
+      doc.roundedRect(left, y, contentWidth, metadataHeight, 3, 3, "FD");
+      doc.setTextColor(30, 64, 175);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text("SESSION", left + 5, y + 7);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(13);
+      doc.text(titleLines, left + 5, y + titleY);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text(candidateLines, left + 5, y + candidateY);
+      doc.text(dateLines, left + contentWidth / 2, y + candidateY);
+      doc.text(roleLines, left + 5, y + roleY);
+      y += metadataHeight + 10;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text(
+        `${data.notes.length} question${data.notes.length === 1 ? "" : "s"} reviewed · Study notes and suggested answer points`,
+        left,
+        y,
+      );
+      y += 10;
+
+      data.notes.forEach((note: any, index: number) => {
+        ensureSpace(22);
+        if (index > 0) {
+          doc.setDrawColor(226, 232, 240);
+          doc.setLineWidth(0.35);
+          doc.line(left, y, right, y);
+          y += 8;
+        }
+
+        const question = typeof note.question === "string" ? note.question.trim().slice(0, 3000) : "";
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(15, 23, 42);
+        const questionLines = doc.splitTextToSize(`Q${index + 1}. ${question || "Interview question"}`, contentWidth) as string[];
+        questionLines.forEach((line) => {
+          ensureSpace(8);
+          doc.text(line, left, y);
+          y += 5.5;
+        });
+        y += 3;
+
+        addSectionHeading("Your answer", [100, 116, 139]);
+        addParagraph(
+          typeof note.candidate_answer === "string" ? note.candidate_answer : "",
+          { fontSize: 9.5, color: [71, 85, 105], fontStyle: "italic", indent: 2, gap: 3 },
+        );
+
+        if (Array.isArray(note.key_points) && note.key_points.length > 0) {
+          addSectionHeading("Key points to remember", [37, 99, 235]);
+          note.key_points.forEach((point: unknown) => {
+            if (typeof point === "string" && point.trim()) {
+              addParagraph(`- ${point.trim()}`, {
+                fontSize: 9.5,
+                color: [51, 65, 85],
+                indent: 3,
+                gap: 1,
+              });
+            }
+          });
+          y += 2;
+        }
+
+        if (typeof note.suggested_answer_summary === "string" && note.suggested_answer_summary.trim()) {
+          ensureSpace(15);
+          doc.setFillColor(240, 253, 250);
+          doc.setDrawColor(153, 246, 228);
+          addSectionHeading("Strong answer should include", [13, 148, 136]);
+          addParagraph(note.suggested_answer_summary.slice(0, 3000), {
+            fontSize: 9.5,
+            color: [19, 78, 74],
+            indent: 3,
+            gap: 8,
+          });
+        }
+      });
+
+      const pageCount = doc.getNumberOfPages();
+      for (let page = 1; page <= pageCount; page += 1) {
+        doc.setPage(page);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.3);
+        doc.line(left, pageHeight - 13, right, pageHeight - 13);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text("Personal interview study notes · Review and adapt to your own experience", left, pageHeight - 8);
+        doc.text(`${page} / ${pageCount}`, right, pageHeight - 8, { align: "right" });
       }
 
       doc.save(`Interview_Notes_${interview.id || interview.documentId}.pdf`);
@@ -276,16 +404,19 @@ function ReportsContent() {
             </motion.div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 lg:gap-8">
-              {interviews.map((interview, idx) => (
-                <motion.div
-                  key={interview.id || idx}
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                  whileHover={{ y: -8 }}
-                  className="group"
-                >
-                  <div                   className="glass-card flex h-full min-w-0 flex-col justify-between rounded-3xl border-white/5 p-5 transition-all hover:bg-white/[0.03] group-hover:border-blue-500/20 sm:rounded-[2.5rem] sm:p-7 lg:p-8">
+              {interviews.map((interview, idx) => {
+                const report = parseInterviewReport(interview.report);
+                const transcriptReady = hasEnoughTranscript(interview.conversation);
+                return (
+                  <motion.div
+                    key={interview.id || idx}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    whileHover={{ y: -8 }}
+                    className="group"
+                  >
+                  <div className="glass-card flex h-full min-w-0 flex-col justify-between rounded-3xl border-white/5 p-5 transition-all hover:bg-white/[0.03] group-hover:border-blue-500/20 sm:rounded-[2.5rem] sm:p-7 lg:p-8">
                     <div className="relative">
                       <div className="flex justify-between items-start mb-6">
                         <div className={`p-3 rounded-2xl bg-${interview.difficulty === 'hard' ? 'rose' : interview.difficulty === 'medium' ? 'amber' : 'emerald'}-500/10 text-${interview.difficulty === 'hard' ? 'rose' : interview.difficulty === 'medium' ? 'amber' : 'emerald'}-400`}>
@@ -313,32 +444,39 @@ function ReportsContent() {
                     </div>
 
                     <div className="flex flex-col gap-3">
-                      <Button
-                        className="h-12 rounded-2xl bg-white text-black hover:bg-slate-100 font-bold w-full transition-all group/btn"
-                        onClick={() => {
-                          try {
-                            const parsed = typeof interview.report === "string" ? JSON.parse(interview.report) : interview.report;
-                            setSelectedReport(parsed);
-                          } catch (e) {
-                            alert("Invalid report format");
-                          }
-                        }}
-                      >
-                        View Report
-                        <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                      </Button>
-                      <Button
-                        onClick={() => handleGenerateNotes(interview)}
-                        disabled={isGeneratingNotes === (interview.id || interview.documentId)}
-                        className="h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/30 hover:text-indigo-300 font-bold w-full transition-all"
-                      >
-                        {isGeneratingNotes === (interview.id || interview.documentId) ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <DownloadCloud className="mr-2 h-4 w-4" />
-                        )}
-                        {isGeneratingNotes === (interview.id || interview.documentId) ? "Analysing conversation..." : "Improvements"}
-                      </Button>
+                      {report && transcriptReady && (
+                        <Button
+                          className="h-12 rounded-2xl bg-white text-black hover:bg-slate-100 font-bold w-full transition-all group/btn"
+                          onClick={() => setSelectedReport(report)}
+                        >
+                          View Report
+                          <ChevronRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                        </Button>
+                      )}
+                      {report && transcriptReady && (
+                        <Button
+                          onClick={() => handleGenerateNotes(interview)}
+                          disabled={isGeneratingNotes === (interview.id || interview.documentId)}
+                          className="h-12 rounded-2xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/30 hover:text-indigo-300 font-bold w-full transition-all"
+                        >
+                          {isGeneratingNotes === (interview.id || interview.documentId) ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <DownloadCloud className="mr-2 h-4 w-4" />
+                          )}
+                          {isGeneratingNotes === (interview.id || interview.documentId) ? "Analysing conversation..." : "Improvements"}
+                        </Button>
+                      )}
+                      {!report && (
+                        <p className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs leading-relaxed text-amber-200/80">
+                          Report and improvements are unavailable because this session has no generated report.
+                        </p>
+                      )}
+                      {report && !transcriptReady && (
+                        <p className="rounded-xl border border-slate-500/20 bg-white/[0.03] px-3 py-2 text-xs leading-relaxed text-slate-400">
+                          Complete at least two interview questions and answers to unlock the report and Improvements.
+                        </p>
+                      )}
                       <Button
                         variant="ghost"
                         className="h-12 rounded-2xl text-slate-400 hover:text-white hover:bg-white/5 font-bold w-full"
@@ -349,8 +487,9 @@ function ReportsContent() {
                       </Button>
                     </div>
                   </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </AnimatePresence>
