@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   CheckCircle2,
+  CircleCheck,
   FileCheck2,
   FileText,
   Loader2,
@@ -89,6 +90,54 @@ function ScoreBar({ category }: { category: AnalysisCategory }) {
           animate={{ width: `${category.score}%` }}
           transition={{ duration: 0.7, ease: "easeOut" }}
         />
+      </div>
+    </div>
+  );
+}
+
+function getScoreLabel(score: number) {
+  if (score >= 80) return { label: "Strong foundation", color: "text-emerald-300" };
+  if (score >= 60) return { label: "Good progress", color: "text-sky-300" };
+  if (score >= 40) return { label: "Room to improve", color: "text-amber-300" };
+  return { label: "Needs attention", color: "text-rose-300" };
+}
+
+function OverallScore({ score }: { score: number }) {
+  const radius = 43;
+  const circumference = 2 * Math.PI * radius;
+  const scoreStyle = getScoreLabel(score);
+  const color = score >= 75 ? "#34d399" : score >= 50 ? "#fbbf24" : "#fb7185";
+
+  return (
+    <div className="flex items-center gap-4 sm:gap-5">
+      <div className="relative h-28 w-28 shrink-0 sm:h-32 sm:w-32">
+        <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90" role="img" aria-label={`Estimated ATS readiness: ${score} out of 100`}>
+          <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(148,163,184,0.15)" strokeWidth="8" />
+          <motion.circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: circumference * (1 - score / 100) }}
+            transition={{ duration: 1, ease: "easeOut" }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-black tabular-nums text-white">{score}</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">out of 100</span>
+        </div>
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-300">Estimated ATS readiness</p>
+        <p className={`mt-2 text-lg font-bold ${scoreStyle.color}`}>{scoreStyle.label}</p>
+        <p className="mt-1 text-xs leading-relaxed text-slate-400">
+          {score >= 75 ? "Your resume is in good shape. Use the suggestions to refine it further." : "Use the recommendations below to strengthen your resume."}
+        </p>
       </div>
     </div>
   );
@@ -335,27 +384,41 @@ export default function ATSAnalyzerPage() {
               </div>
             ) : analysis ? (
               <div className="space-y-6">
-                <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-5">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-widest text-indigo-300">Estimated ATS readiness</p>
-                    <p className="mt-2 text-sm text-slate-400">
-                      {analysis.hasJobDescription ? "Compared with the supplied job description" : "General resume review · no job description"}
-                    </p>
+                <div className="rounded-2xl border border-indigo-400/20 bg-gradient-to-br from-indigo-500/10 via-slate-900/50 to-cyan-500/[0.06] p-4 sm:p-5">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-bold text-white">
+                      <CircleCheck className="h-4 w-4 text-emerald-400" />
+                      Analysis complete
+                    </div>
+                    <span className="rounded-full border border-white/10 bg-slate-950/50 px-2.5 py-1 text-[10px] font-semibold text-slate-300">
+                      {analysis.hasJobDescription ? "Role-specific review" : "General review"}
+                    </span>
                   </div>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-5xl font-black tabular-nums text-white">{analysis.overallScore}</span>
-                    <span className="text-lg text-slate-500">/100</span>
-                  </div>
+                  <OverallScore score={analysis.overallScore} />
                 </div>
 
-                <p className="text-sm leading-relaxed text-slate-300">{analysis.summary}</p>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                  <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">Reviewer summary</h3>
+                  <p className="text-sm leading-relaxed text-slate-200">{analysis.summary}</p>
+                </div>
 
-                <div className="space-y-3">
+                <div>
+                  <div className="mb-3 flex items-end justify-between gap-3">
+                    <h3 className="text-lg font-bold text-white">Score breakdown</h3>
+                    <span className="text-xs text-slate-500">{analysis.categories.length} areas reviewed</span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
                   {analysis.categories.map((category) => <ScoreBar key={category.name} category={category} />)}
+                  </div>
                 </div>
 
                 {analysis.hasJobDescription && (
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-3">
+                      <h3 className="text-lg font-bold text-white">Job description match</h3>
+                      <p className="mt-1 text-xs text-slate-400">Keywords are evidence from the supplied job description, not a guarantee of ATS ranking.</p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
                     <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] p-4">
                       <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-emerald-300">
                         <CheckCircle2 className="h-4 w-4" /> Found in resume
@@ -376,31 +439,45 @@ export default function ATSAnalyzerPage() {
                         )) : <p className="text-xs text-slate-500">No major gaps identified.</p>}
                       </div>
                     </div>
+                    </div>
                   </div>
                 )}
 
                 <div>
-                  <h3 className="mb-3 text-lg font-bold text-white">Suggested next steps</h3>
+                  <div className="mb-3">
+                    <h3 className="text-lg font-bold text-white">Recommended next steps</h3>
+                    <p className="mt-1 text-xs text-slate-400">Prioritized actions grounded in the resume review.</p>
+                  </div>
                   <div className="space-y-3">
                     {analysis.suggestions.map((suggestion, index) => (
-                      <div key={`${suggestion.category}-${index}`} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                            suggestion.priority === "high" ? "bg-rose-500/15 text-rose-300" :
-                            suggestion.priority === "medium" ? "bg-amber-500/15 text-amber-300" :
-                            "bg-slate-500/15 text-slate-300"
-                          }`}>{suggestion.priority} priority</span>
-                          <span className="text-xs text-slate-500">{suggestion.category}</span>
+                      <div key={`${suggestion.category}-${index}`} className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                          suggestion.priority === "high" ? "bg-rose-500/15 text-rose-300" :
+                          suggestion.priority === "medium" ? "bg-amber-500/15 text-amber-300" :
+                          "bg-slate-500/15 text-slate-300"
+                        }`}>{index + 1}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-2">
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                              suggestion.priority === "high" ? "bg-rose-500/15 text-rose-300" :
+                              suggestion.priority === "medium" ? "bg-amber-500/15 text-amber-300" :
+                              "bg-slate-500/15 text-slate-300"
+                            }`}>{suggestion.priority} priority</span>
+                            <span className="text-xs text-slate-500">{suggestion.category}</span>
+                          </div>
+                          <p className="text-sm font-semibold text-slate-100">{suggestion.recommendation}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-400">{suggestion.why}</p>
                         </div>
-                        <p className="text-sm font-semibold text-slate-100">{suggestion.recommendation}</p>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-400">{suggestion.why}</p>
                       </div>
                     ))}
                   </div>
                 </div>
-                <p className="text-center text-[11px] text-slate-500">
-                  Scores are estimates based on extracted text and do not predict a specific employer&apos;s ATS.
-                </p>
+                <div className="flex items-start gap-2 rounded-xl border border-amber-400/15 bg-amber-500/[0.04] p-3">
+                  <Target className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                  <p className="text-[11px] leading-relaxed text-slate-400">
+                    Scores are estimates based on extracted text and do not predict a specific employer&apos;s ATS. Review suggestions and keep all claims accurate to your experience.
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="flex min-h-80 flex-col items-center justify-center px-4 text-center">
