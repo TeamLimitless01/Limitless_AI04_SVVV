@@ -4,6 +4,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import "../components/GradientWaves.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Suspense } from "react";
 import Navbar from "@/components/navbar";

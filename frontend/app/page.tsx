@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import Hero from "@/components/hero";
+import GradientWaves from "@/components/GradientWaves";
 import AnimatedSection from "@/components/animated-section";
 import NumberTicker from "@/components/number-ticker";
 import { ArrowRight, Bot, Camera, BarChart3, Brain, TrendingUp, Zap, Sparkles } from "lucide-react";
@@ -11,10 +12,23 @@ import { Button } from "@/components/ui/button";
 export default function HomePage() {
   return (
     <main className="relative min-h-screen selection:bg-blue-500/30">
-      {/* Background Decoratives */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-500/10 blur-[120px] rounded-full animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/10 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+        <GradientWaves
+          horizonColor="#2563EB"
+          waveColor="#7C3AED"
+          crestColor="#DBEAFE"
+          speed={0.25}
+          amplitude={2}
+          relief={0.8}
+          opacity={0.7}
+          grain={0.08}
+          quality="low"
+          dpr={1.25}
+          mouseInteraction
+          swellOnClick={false}
+          style={{ position: "absolute", inset: 0 }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/20 via-slate-950/35 to-slate-950/60" />
       </div>
 
       <div className="relative z-10">

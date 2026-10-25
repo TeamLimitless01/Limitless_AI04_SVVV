@@ -52,10 +52,17 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
   const router = useRouter();
 
-  const { data, isLoading } = useStrapi("interviews", {
-    populate: "*",
-    filters: { documentId: params.id },
-  });
+  const { data, isLoading, mutate: revalidateInterview } = useStrapi(
+    "interviews",
+    {
+      populate: "*",
+      filters: { documentId: params.id },
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    }
+  );
 
   const interviewData: any = useMemo(() => data?.data, [data]);
 
@@ -281,7 +288,15 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
           typeof report?.error === "string" ? report.error : "Failed to generate report."
         );
       }
-      if (report) await strapi.update("interviews", params.id, { report: JSON.stringify(report) });
+      if (report) {
+        await strapi.update("interviews", params.id, { report: JSON.stringify(report) });
+        try {
+          await revalidateInterview();
+        } catch (cacheError) {
+          console.error("Report was saved, but interview cache revalidation failed.", cacheError);
+          toast.error("Report generated, but interview details could not be refreshed.");
+        }
+      }
       toast.success("Report generated!");
       router.push(`/reports?interviewId=${params.id}`);
     } catch (err) {
@@ -290,7 +305,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     } finally {
       setIsGeneratingReport(false);
     }
-  }, [isGeneratingReport, messages, interviewDetails, tabSwitchCount, params.id, router, stopSession]);
+  }, [isGeneratingReport, messages, interviewDetails, tabSwitchCount, params.id, router, stopSession, revalidateInterview]);
 
   handleGenerateReportRef.current = handleGenerateReport;
 

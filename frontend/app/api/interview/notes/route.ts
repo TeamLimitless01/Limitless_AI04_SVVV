@@ -19,6 +19,7 @@ const hasEnoughTranscript = (messages: TranscriptMessage[]) => {
   return interviewerTurns >= 2 && candidateTurns >= 2 && transcriptLength >= 180;
 };
 
+
 export async function POST(req: Request) {
   try {
     const requestBody: unknown = await req.json();
