@@ -366,7 +366,7 @@ ${getDifficultyPrompt(interviewDetails.difficulty.toLowerCase())}
 `;
 
             const sessionPromise = ai.live.connect({
-                model: "gemini-3.1-flash-live-preview",
+                model: "gemini-3.8-live",
                 config: {
                     responseModalities: [Modality.AUDIO],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } },
