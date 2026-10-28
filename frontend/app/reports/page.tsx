@@ -85,6 +85,8 @@ function ReportsContent() {
 
   useEffect(() => {
     if (interviewId && data?.data?.length > 0) {
+      if (lastProcessedId.current === interviewId) return;
+
       const interview = data.data.find(
         (i: any) => i.documentId === interviewId || i.id?.toString() === interviewId
       );
@@ -93,15 +95,13 @@ function ReportsContent() {
         const parsed = parseInterviewReport(interview.report);
         const transcriptReady = hasEnoughTranscript(interview.conversation);
         const availableReport = parsed && transcriptReady ? parsed : null;
-        if (lastProcessedId.current !== interviewId) {
+        if (availableReport) {
           setSelectedReport(availableReport);
           lastProcessedId.current = interviewId;
-        } else if (JSON.stringify(selectedReport) !== JSON.stringify(availableReport)) {
-          setSelectedReport(availableReport);
         }
       }
     }
-  }, [interviewId, data, selectedReport]);
+  }, [interviewId, data]);
 
   const handleGenerateNotes = async (interview: any) => {
     if (!parseInterviewReport(interview.report)) {
@@ -496,7 +496,9 @@ function ReportsContent() {
       </div>
 
       {/* REPORT MODAL */}
-      <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
+      <Dialog open={!!selectedReport} onOpenChange={(open) => {
+        if (!open) setSelectedReport(null);
+      }}>
         <DialogContent className="h-[96dvh] max-h-[96dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border-white/10 bg-slate-950 p-0 text-slate-200 shadow-[0_0_100px_rgba(0,0,0,0.5)] backdrop-blur-3xl sm:h-[92dvh] sm:max-h-[92dvh] sm:w-[95vw] sm:max-w-[95vw] sm:rounded-3xl lg:max-w-7xl lg:rounded-[3rem]">
           <div className="flex flex-col h-full overflow-hidden">
             <header className="flex shrink-0 items-center justify-between border-b border-white/5 bg-white/[0.01] px-4 py-3 sm:px-6 sm:py-5 lg:px-8 lg:py-6">

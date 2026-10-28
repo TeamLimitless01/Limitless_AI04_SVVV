@@ -37,7 +37,7 @@ const defaultMetricDefinitions: Record<MetricId, { label: string; weight: number
 };
 
 const getMetricDefinitions = (mode: unknown): Record<MetricId, { label: string; weight: number }> => {
-  if (mode === "HR") {
+  if (typeof mode === "string" && mode.toLocaleLowerCase().startsWith("hr")) {
     return {
       roleKnowledge: { label: "Behavioral evidence and relevance", weight: 0.4 },
       problemSolving: { label: "Judgment, reflection, and actions", weight: 0.35 },
@@ -151,40 +151,63 @@ export async function POST(req: Request) {
     const isHrInterview =
       typeof interviewDetails.mode === "string" &&
       interviewDetails.mode.toLocaleLowerCase().startsWith("hr");
+    const interviewDifficulty =
+      typeof interviewDetails.difficulty === "string"
+        ? interviewDetails.difficulty.toLocaleLowerCase()
+        : "medium";
     const tabSwitchCount =
       typeof requestBody.tabSwitchCount === "number" && Number.isFinite(requestBody.tabSwitchCount)
         ? Math.max(0, Math.floor(requestBody.tabSwitchCount))
         : 0;
+    const questionAnswerPairs = transcript.flatMap((message, answerMessageIndex) => {
+      if (message.role !== "user") return [];
+      let questionMessageIndex = answerMessageIndex - 1;
+      while (questionMessageIndex >= 0 && transcript[questionMessageIndex].role !== "assistant") {
+        questionMessageIndex -= 1;
+      }
+      return [{
+        questionMessageIndex: questionMessageIndex >= 0 ? questionMessageIndex : null,
+        answerMessageIndex,
+      }];
+    });
 
     const systemPrompt = `
-You evaluate mock interview answers against an evidence-based rubric for a ${isHrInterview ? "behavioral HR" : "technical"} interview.
+You are an impartial coach evaluating a ${isHrInterview ? "behavioral HR" : "role-specific technical"} mock interview. Your goal is a fair, useful assessment—not to reward or punish the candidate and not to force scores toward the middle.
+Target interview difficulty: ${interviewDifficulty}. Apply the stated difficulty anchors to the questions actually asked.
 
-Scoring standard (0–4 for each metric):
-- Use null when there is no assessable answer; include no evidence for null.
-- 0 = an assessable answer with no correct or relevant content.
-- 1 = mostly incorrect or unsupported, but with limited relevant content.
-- 2 = partially correct, with material gaps.
-- 3 = substantially correct and sufficiently reasoned.
-- 4 = accurate, relevant, and well-supported.
+## SCORING SCALE
+Rate each assessable metric with an integer from 0 to 4. Calibrate to the stated interview difficulty:
+- 0 = The candidate gave an assessable response, but it does not address the question or contains no relevant demonstrated evidence.
+- 1 = Very limited evidence; the response is mostly off-target, materially mistaken, or unsupported.
+- 2 = Partial evidence; some relevant understanding or reasoning is present, alongside meaningful gaps.
+- 3 = Solid evidence for this role and difficulty; the answer is relevant and substantially sound, with adequate reasoning or support.
+- 4 = Strong, well-supported evidence that meets the expected level particularly well; do not require a flawless or unusually long answer.
+Use null (with no evidence) when the metric genuinely was not tested or the transcript is too unclear to assess fairly. Do not use 0 as a substitute for missing evidence.
+
+Difficulty calibration: "easy" expects foundational accuracy; "medium" expects sound applied understanding; "hard" expects deeper reasoning and trade-offs. Difficulty changes the expected depth, not the candidate's worth or the evaluator's severity. Judge the answer against the level actually asked, not an ideal answer to a harder question.
 
 Metric definitions:
 - roleKnowledge: ${isHrInterview
-  ? "behavioral evidence and relevance: evaluate specific examples, the candidate's own contribution, and relevance to the stated role. Do not score technical knowledge."
-  : "technical knowledge and application: correctness and relevance of role-specific knowledge, using only the stated focus areas; do not assume every role is a software role."}
+  ? "behavioral evidence and relevance: assess examples actually requested, the candidate's own contribution, and relevance to the stated role. Do not score technical knowledge."
+  : "role knowledge and application: assess correctness and relevance of answers to the questions asked, using the stated role and skills. Do not assume every role is a software role or penalize untested skills."}
 - problemSolving: ${isHrInterview
-  ? "judgment, reflection, and actions: evaluate the candidate's reasoning, choices, accountability, and learning in the described example."
-  : "technical reasoning and tradeoffs: evaluate coherence of the approach, consideration of constraints, and support for technical decisions."}
-- communication: clarity, organization, and specificity of the answer. Never score accent, personality, emotion, confidence, or camera presence.
+  ? "judgment, reflection, and actions: assess the reasoning and choices shown in examples the candidate was asked to discuss; do not demand a particular storytelling framework."
+  : "reasoning and problem solving: assess the coherence of the approach and any relevant constraints or trade-offs actually explored in the interview."}
+- communication: assess whether the response is understandable and sufficiently organized for its substance. Concision is not a weakness. Do not score accent, grammar unless it impedes understanding, personality, confidence, emotion, pauses, camera presence, or speaking speed.
 
-Evidence and integrity:
+## ASSESSMENT METHOD
+- Evaluate each candidate answer together with the paired preceding interviewer turn in questionAnswerPairs, using the indices to find both messages in messages. Ignore greetings, acknowledgements, small talk, and interviewer statements that are not questions. If a pair has no meaningful question, do not infer what the candidate was expected to answer.
+- Consider the full set of assessable answers for each metric. Do not let one weak or strong answer automatically determine the whole metric; weigh the consistency and relevance of evidence across the interview.
+- Use the stated role, skills, mode, and difficulty as context. Do not require knowledge outside the asked questions or selected focus. The resume is context for question relevance only, never proof of candidate competence.
+- Treat likely speech-to-text errors conservatively. Score only the meaning that is reasonably clear; do not infer missing technical details or penalize garbled transcription as poor communication. If the answer cannot be interpreted well enough for a metric, use null for that metric.
 - Assess only candidate (user) messages, using their zero-based index in the full messages array.
-- For every numeric rating, include at least one exact, contiguous quote copied from that candidate message. Do not invent, paraphrase, or alter quotes.
-- A null rating must have no evidence. Do not infer from unanswered questions.
-- Resume details are context for the interview only and are never evidence for a score; assess only candidate answers.
+- For every numeric rating, include at least one exact, contiguous quote copied from a relevant candidate answer. Do not invent, paraphrase, or alter quotes. Include more than one quote only when multiple answers materially support the metric.
+- A null rating must have no evidence. Do not infer from unanswered or unasked questions.
 - Every strength, weakness, insight, rationale, and next step must be supported by the transcript and align with the metric ratings. Do not invent facts, competencies, or answer content.
-- The overall summary must be a concise synthesis of the supported metrics, not a hiring decision. Recommendations must address evidenced gaps.
+- Explain the rating with specific demonstrated evidence and realistic next steps; distinguish a true knowledge gap from an area the interview did not test.
+- The overall summary must be a concise synthesis of the assessed metrics, not a hiring decision. Recommendations must address evidenced gaps.
 - Mention the provided tab switch count neutrally in overallJustification only when it is greater than zero. It is not a performance metric and must not affect any rating.
-- Use short, neutral, professional language.
+- Use respectful, neutral language. Never inflate or deflate scores to satisfy a target distribution.
 `;
 
     const apiKey = process.env.AI_API_TOKEN_POLLINATIONS;
@@ -285,6 +308,7 @@ Evidence and integrity:
               candidateName,
               interviewDetails,
               messages: transcript,
+              questionAnswerPairs,
               integrityViolations: tabSwitchCount,
             }),
           },
@@ -323,19 +347,28 @@ Evidence and integrity:
       problemSolving: metrics.problemSolving.rating === null ? null : metrics.problemSolving.rating * 2.5,
       communication: metrics.communication.rating === null ? null : metrics.communication.rating * 2.5,
     };
-    const roleKnowledgeRating = metrics.roleKnowledge.rating;
-    const problemSolvingRating = metrics.problemSolving.rating;
-    const communicationRating = metrics.communication.rating;
+    const assessedMetricIds = (Object.keys(metricDefinitions) as MetricId[]).filter(
+      (metricId) => metrics[metricId].rating !== null
+    );
+    const assessedWeight = assessedMetricIds.reduce(
+      (total, metricId) => total + metricDefinitions[metricId].weight,
+      0
+    );
+    const assessedWeightPercent = Math.round(assessedWeight * 100);
     const overall =
-      roleKnowledgeRating === null ||
-      problemSolvingRating === null ||
-      communicationRating === null
+      assessedMetricIds.length < 2
         ? null
         : Number(
             (
-              roleKnowledgeRating * metricDefinitions.roleKnowledge.weight * 2.5 +
-              problemSolvingRating * metricDefinitions.problemSolving.weight * 2.5 +
-              communicationRating * metricDefinitions.communication.weight * 2.5
+              assessedMetricIds.reduce(
+                (total, metricId) =>
+                  total +
+                  (metrics[metricId].rating as number) *
+                    metricDefinitions[metricId].weight,
+                0
+              ) /
+                assessedWeight *
+                2.5
             ).toFixed(1)
           );
 
@@ -367,13 +400,16 @@ Evidence and integrity:
         actionableNextSteps: generated.actionableNextSteps,
       },
       scorecard: {
-        rubricVersion: "1.1",
+        rubricVersion: "1.2",
         scale: "0-4; metric scores are multiplied by 2.5 to convert to a 0-10 scale",
         weighting: metricDefinitions,
         metrics,
-        assessedMetricCount: Object.values(metrics).filter((metric) => metric.rating !== null).length,
+        assessedMetricCount: assessedMetricIds.length,
         totalMetricCount: Object.keys(metricDefinitions).length,
-        overallFormula: `(${metricDefinitions.roleKnowledge.label} × 0.40 + ${metricDefinitions.problemSolving.label} × 0.35 + ${metricDefinitions.communication.label} × 0.25) × 2.5`,
+        assessedWeightPercent,
+        overallFormula: assessedMetricIds.length < 2
+          ? "An overall score requires at least two assessable metrics."
+          : "(sum of assessed metric ratings × their weights / sum of assessed metric weights) × 2.5",
       },
       scores: {
         ...scores,

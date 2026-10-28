@@ -40,6 +40,10 @@ export default function InterviewReport({ report }: { report?: any }) {
         weight: Math.round(Number(definition.weight) * 100),
       }))
     : [];
+  const scoreCoverageNote =
+    scorecard?.rubricVersion === "1.2"
+      ? `${scorecard.assessedMetricCount}/${scorecard.totalMetricCount} metrics assessed (${scorecard.assessedWeightPercent}% of rubric weight). Unassessed areas are excluded from the overall score.`
+      : `Evidence coverage: ${scorecard?.assessedMetricCount}/${scorecard?.totalMetricCount} metrics assessed.`;
   const metricLabel = (id: string) =>
     weighting[id]?.label || defaultMetricLabels[id] || id;
 
@@ -119,7 +123,19 @@ export default function InterviewReport({ report }: { report?: any }) {
             <h3 className="text-3xl font-black text-white mb-1">
               {scores.overall == null ? "Not scored" : scores.overall}<span className="text-lg text-slate-500 font-bold">{scores.overall == null ? "" : "/10"}</span>
             </h3>
-            <p className="text-sm text-slate-400 font-medium line-clamp-1">{overallPerformance.summary || 'Performance evaluation completed.'}</p>
+            <p className="text-sm text-slate-400 font-medium line-clamp-2">
+              {overallPerformance.summary || 'Performance evaluation completed.'}
+            </p>
+            {scorecard?.rubricVersion === "1.2" && scores.overall != null && (
+              <p className="mt-2 text-xs text-slate-500">
+                Based on {scorecard.assessedMetricCount}/{scorecard.totalMetricCount} assessable metrics ({scorecard.assessedWeightPercent}% rubric weight).
+              </p>
+            )}
+            {scorecard?.rubricVersion === "1.2" && scores.overall == null && (
+              <p className="mt-2 text-xs text-amber-300/80">
+                An overall score needs at least two assessable metrics.
+              </p>
+            )}
           </motion.div>
 
           {/* Skills Card */}
@@ -314,10 +330,13 @@ export default function InterviewReport({ report }: { report?: any }) {
               <motion.section variants={itemVariants} className="glass-card min-w-0 rounded-2xl border-white/5 p-4 sm:rounded-3xl sm:p-6 lg:rounded-[2.5rem] lg:p-8">
                 <h3 className="mb-2 text-lg font-bold tracking-tight text-white sm:text-xl">Evidence-Based Scorecard</h3>
                 <p className="text-xs leading-relaxed text-slate-500 mb-6">
-                  Rubric {scorecard.rubricVersion}: ratings use transcript evidence; the overall score is calculated from the listed weights.
+                  Rubric {scorecard.rubricVersion}: ratings use transcript evidence.{" "}
+                  {scorecard.rubricVersion === "1.2"
+                    ? "The overall score is weighted across assessable metrics only; at least two metrics are required."
+                    : "The overall score is calculated from the listed weights."}
                 </p>
                 <p className="text-xs text-slate-400 mb-6">
-                  Evidence coverage: {scorecard.assessedMetricCount}/{scorecard.totalMetricCount} metrics assessed.
+                  {scoreCoverageNote}
                 </p>
                 <div className="space-y-6">
                   {scorecardMetrics.map((metric) => {
