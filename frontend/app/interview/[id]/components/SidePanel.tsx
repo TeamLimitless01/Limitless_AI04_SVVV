@@ -13,7 +13,6 @@ interface SidePanelProps {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   timeLeft: number;
   totalTime: number;
-  isCaptionsOn: boolean;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
 }
@@ -35,7 +34,6 @@ const SidePanel = memo(function SidePanel({
   setMessages,
   timeLeft,
   totalTime,
-  isCaptionsOn,
   collapsed,
   onCollapsedChange,
 }: SidePanelProps) {
@@ -194,24 +192,6 @@ const SidePanel = memo(function SidePanel({
               </AnimatePresence>
             </div>
 
-            {/* Latest caption (shown when captions enabled) */}
-            <AnimatePresence>
-              {isCaptionsOn && messages.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  className="px-4 py-3 border-t border-white/[0.06] bg-white/[0.02]"
-                >
-                  <span className="text-[10px] font-bold text-blue-400/60 uppercase tracking-widest block mb-1">
-                    Live Caption
-                  </span>
-                  <p className="text-white/60 text-xs leading-relaxed line-clamp-2">
-                    {messages[messages.length - 1]?.content || ""}
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>

@@ -20,6 +20,8 @@ const Navbar = () => {
     { href: "/reports", label: "Reports" },
   ];
 
+  if (pathname.startsWith("/interview/")) return null;
+
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   return (

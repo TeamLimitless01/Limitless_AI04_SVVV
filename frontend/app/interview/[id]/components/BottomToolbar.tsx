@@ -8,7 +8,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   PhoneOff,
-  Subtitles,
+  MessageSquare,
   Video,
   VideoOff,
 } from "lucide-react";
@@ -19,13 +19,14 @@ interface BottomToolbarProps {
   listening: boolean;
   volume: number;
   isCameraOn: boolean;
-  isCaptionsOn: boolean;
+  isTranscriptVisible: boolean;
   isSidePanelCollapsed: boolean;
   isInterviewCompleted: boolean;
   isGeneratingReport: boolean;
+  micDisabled: boolean;
   onToggleMic: () => void;
   onToggleCamera: () => void;
-  onToggleCaptions: () => void;
+  onToggleTranscript: () => void;
   onToggleSidePanel: () => void;
   onEndInterview: () => void;
   onGenerateReport: () => void;
@@ -34,6 +35,7 @@ interface BottomToolbarProps {
 const MicrophoneContext = createContext<{
   listening: boolean;
   volume: number;
+  disabled: boolean;
   onToggleMic: () => void;
 } | null>(null);
 
@@ -42,16 +44,17 @@ const MicrophoneControl = memo(function MicrophoneControl() {
   if (!microphone)
     throw new Error("MicrophoneControl must be rendered inside BottomToolbar");
 
-  const { listening, volume, onToggleMic } = microphone;
+  const { listening, volume, disabled, onToggleMic } = microphone;
   return (
     <div className="flex flex-col items-center gap-1.5">
       <div className="relative">
         <button
           type="button"
           onClick={onToggleMic}
-          title={listening ? "Mute Microphone" : "Unmute Microphone"}
+          disabled={disabled}
+          title={disabled ? "Microphone disabled during interview closing" : listening ? "Mute Microphone" : "Unmute Microphone"}
           aria-pressed={listening}
-          className={`relative w-12 h-12 md:w-13 md:h-13 rounded-2xl flex items-center justify-center transition-all duration-200 border active:scale-90 ${
+          className={`relative w-12 h-12 md:w-13 md:h-13 rounded-2xl flex items-center justify-center transition-all duration-200 border active:scale-90 disabled:cursor-not-allowed disabled:opacity-50 ${
             listening
               ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25"
               : "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/15"
@@ -78,17 +81,17 @@ const MicrophoneControl = memo(function MicrophoneControl() {
 
 type BottomToolbarContentProps = Omit<
   BottomToolbarProps,
-  "listening" | "volume" | "onToggleMic"
+  "listening" | "volume" | "micDisabled" | "onToggleMic"
 >;
 
 const BottomToolbarContent = memo(function BottomToolbarContent({
   isCameraOn,
-  isCaptionsOn,
+  isTranscriptVisible,
   isSidePanelCollapsed,
   isInterviewCompleted,
   isGeneratingReport,
   onToggleCamera,
-  onToggleCaptions,
+  onToggleTranscript,
   onToggleSidePanel,
   onEndInterview,
   onGenerateReport,
@@ -100,6 +103,7 @@ const BottomToolbarContent = memo(function BottomToolbarContent({
     inactiveClass = "bg-white/5 text-white/40 hover:text-white/70 hover:bg-white/8",
     label,
     className = "",
+    showMobileLabel = false,
     children,
   }: {
     onClick: () => void;
@@ -108,6 +112,7 @@ const BottomToolbarContent = memo(function BottomToolbarContent({
     inactiveClass?: string;
     label: string;
     className?: string;
+    showMobileLabel?: boolean;
     children: React.ReactNode;
   }) => (
     <div className={`flex flex-col items-center gap-1.5 ${className}`}>
@@ -115,6 +120,7 @@ const BottomToolbarContent = memo(function BottomToolbarContent({
         type="button"
         onClick={onClick}
         title={label}
+        aria-label={label}
         aria-pressed={active}
         className={`relative w-12 h-12 md:w-13 md:h-13 rounded-2xl flex items-center justify-center transition-all duration-200 border border-white/[0.08] active:scale-90 ${
           active ? activeClass : inactiveClass
@@ -122,7 +128,9 @@ const BottomToolbarContent = memo(function BottomToolbarContent({
       >
         {children}
       </button>
-      <span className="text-[9px] font-semibold text-white/25 uppercase tracking-widest hidden sm:block">
+      <span className={`text-[9px] font-semibold uppercase tracking-widest ${
+        showMobileLabel ? "text-blue-300/70" : "hidden text-white/25 sm:block"
+      }`}>
         {label}
       </span>
     </div>
@@ -201,12 +209,13 @@ const BottomToolbarContent = memo(function BottomToolbarContent({
       {/* Right group: Captions + Sidebar */}
       <div className="flex items-center gap-2 md:gap-3">
         <ToolBtn
-          onClick={onToggleCaptions}
-          active={isCaptionsOn}
+          onClick={onToggleTranscript}
+          active={isTranscriptVisible}
           activeClass="bg-blue-500/15 border-blue-500/25 text-blue-400 hover:bg-blue-500/22"
-          label="Captions"
+          label={isTranscriptVisible ? "Show Orb" : "Transcript"}
+          showMobileLabel
         >
-          <Subtitles className="w-4 h-4" />
+          <MessageSquare className="w-4 h-4" />
         </ToolBtn>
 
         <ToolBtn
@@ -230,12 +239,13 @@ const BottomToolbarContent = memo(function BottomToolbarContent({
 const BottomToolbar = memo(function BottomToolbar({
   listening,
   volume,
+  micDisabled,
   onToggleMic,
   ...toolbarProps
 }: BottomToolbarProps) {
   const microphoneState = useMemo(
-    () => ({ listening, volume, onToggleMic }),
-    [listening, volume, onToggleMic],
+    () => ({ listening, volume, disabled: micDisabled, onToggleMic }),
+    [listening, volume, micDisabled, onToggleMic],
   );
 
   return (

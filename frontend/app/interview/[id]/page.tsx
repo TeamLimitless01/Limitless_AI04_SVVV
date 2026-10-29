@@ -7,10 +7,20 @@ import { useGeminiLive } from "./useGeminiLive";
 import toast from "react-hot-toast";
 import { strapi } from "@/lib/api/sdk";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Loader2 } from "lucide-react";
-import Orb from "@/components/Orb";
 import LightRays from "@/components/LightRay";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import StartInterviewModal from "./components/StartInterviewModal";
 import InterviewHeader from "./components/InterviewHeader";
 import AIInterviewerStage from "./components/AIInterviewerStage";
@@ -18,6 +28,19 @@ import BottomToolbar from "./components/BottomToolbar";
 import SidePanel from "./components/SidePanel";
 
 type Message = { role: "assistant" | "user"; content: string; id?: string };
+
+function removeUnansweredAssistantTail(messages: Message[]) {
+  let lastCandidateMessageIndex = messages.length - 1;
+  while (
+    lastCandidateMessageIndex >= 0 &&
+    messages[lastCandidateMessageIndex].role !== "user"
+  ) {
+    lastCandidateMessageIndex--;
+  }
+  return lastCandidateMessageIndex < 0
+    ? []
+    : messages.slice(0, lastCandidateMessageIndex + 1);
+}
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -27,6 +50,7 @@ const formatTime = (seconds: number) => {
 
 export default function InterviewPage({ params }: { params: { id: string } }) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef<Message[]>([]);
   const [isInterviewCompleted, setIsInterviewCompleted] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [listening, setListening] = useState(false);
@@ -34,16 +58,20 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [volume, setVolume] = useState(0);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [hasAutoSubmitted, setHasAutoSubmitted] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [showStartModal, setShowStartModal] = useState(true);
+  const [isTerminateDialogOpen, setIsTerminateDialogOpen] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
 
   // New UI state
   const [isCameraOn, setIsCameraOn] = useState(false);
-  const [isCaptionsOn, setIsCaptionsOn] = useState(false);
+  const [isTranscriptVisible, setIsTranscriptVisible] = useState(false);
   const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(false);
 
   // Refs for callbacks
   const handleGenerateReportRef = useRef<(() => Promise<void>) | null>(null);
+  const closingStartedRef = useRef(false);
+  const timeExpiredRef = useRef(false);
   const requestGenerateReport = useCallback(() => {
     const generateReport = handleGenerateReportRef.current;
     if (!generateReport) throw new Error("Report generation is not initialized.");
@@ -89,14 +117,20 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
   const onMessage = useCallback((newText: string) => {
     userTranscriptMsgId.current = null;
-    setMessages((prev: any) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage?.role === "assistant") {
-        return [...prev.slice(0, -1), { ...lastMessage, content: lastMessage.content + newText }];
-      } else {
-        return [...prev, { role: "assistant", content: newText, id: crypto.randomUUID() }];
-      }
-    });
+    const previous = messagesRef.current;
+    const lastMessage = previous[previous.length - 1];
+    const next =
+      lastMessage?.role === "assistant"
+        ? [
+            ...previous.slice(0, -1),
+            { ...lastMessage, content: lastMessage.content + newText },
+          ]
+        : [
+            ...previous,
+            { role: "assistant" as const, content: newText, id: crypto.randomUUID() },
+          ];
+    messagesRef.current = next;
+    setMessages(next);
   }, []);
 
   const onInterrupt = useCallback(() => {
@@ -107,18 +141,28 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     (transcription: any) => {
       console.log("[InterviewPage] User Transcription Recv:", transcription);
       if (transcription.text) {
-        setMessages((prev: any) => {
-          const lastMessage = prev[prev.length - 1];
-          if (lastMessage?.role === "user" && lastMessage.id === userTranscriptMsgId.current) {
-            const newMsg = { ...lastMessage, content: transcription.text };
-            return [...prev.slice(0, -1), newMsg];
-          } else {
-            const newId = crypto.randomUUID();
-            userTranscriptMsgId.current = newId;
-            const newMsg = { role: "user", content: transcription.text, id: newId };
-            return [...prev, newMsg];
-          }
-        });
+        const previous = messagesRef.current;
+        const lastMessage = previous[previous.length - 1];
+        const next =
+          lastMessage?.role === "user" &&
+          lastMessage.id === userTranscriptMsgId.current
+            ? [
+                ...previous.slice(0, -1),
+                { ...lastMessage, content: transcription.text },
+              ]
+            : [
+                ...previous,
+                {
+                  role: "user" as const,
+                  content: transcription.text,
+                  id: crypto.randomUUID(),
+                },
+              ];
+        if (next[next.length - 1].role === "user") {
+          userTranscriptMsgId.current = next[next.length - 1].id ?? null;
+        }
+        messagesRef.current = next;
+        setMessages(next);
       }
     },
     []
@@ -242,20 +286,26 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   }, [showStartModal, isInterviewCompleted]);
 
   useEffect(() => {
-    if (timeLeft === 10) {
+    if (
+      timeLeft > 0 &&
+      timeLeft <= 10 &&
+      !showStartModal &&
+      !closingStartedRef.current
+    ) {
+      closingStartedRef.current = true;
+      setIsClosing(true);
+      setListening(false);
       sendSystemMessage(
-        "[SYSTEM: 10 seconds remaining. Close the interview now. Thank the candidate by name and say thanks you for using neuraview and end warmly .]"
+        "[SYSTEM: The interview is ending now. The microphone is disabled. Do not ask another question, invite a response, or start a new topic. Give a brief, warm closing and thank the candidate for using NeuraView.]"
       );
     }
 
     if (timeLeft === 0 && !showStartModal && !hasAutoSubmitted && !isGeneratingReport) {
+      timeExpiredRef.current = true;
+      setIsClosing(true);
       setHasAutoSubmitted(true);
       setListening(false);
       stopSession();
-      setMessages((prev: Message[]) => [
-        ...prev,
-        { role: "assistant", content: "The interview time is up. Wrap up and report generation initiated." },
-      ]);
       toast("Time is up! Wrapping up...", { icon: "⏳" });
       requestGenerateReport();
     }
@@ -268,16 +318,22 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     stopSession();
     setIsGeneratingReport(true);
     setIsInterviewCompleted(true);
+    const currentMessages = messagesRef.current;
+    const reportMessages = timeExpiredRef.current
+      ? removeUnansweredAssistantTail(currentMessages)
+      : currentMessages;
+    messagesRef.current = reportMessages;
+    setMessages(reportMessages);
     try {
-      await strapi.update("interviews", params.id, { conversation: messages });
+      await strapi.update("interviews", params.id, { conversation: reportMessages });
       const res = await fetch("/api/interview/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
+          messages: reportMessages.map(({ role, content }) => ({ role, content })),
           interviewDetails: {
             ...interviewDetails,
-            numOfQuestions: messages.filter((m) => m.role === "assistant").length,
+            numOfQuestions: reportMessages.filter((m) => m.role === "assistant").length,
           },
           tabSwitchCount: tabSwitchCount,
         }),
@@ -305,19 +361,30 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     } finally {
       setIsGeneratingReport(false);
     }
-  }, [isGeneratingReport, messages, interviewDetails, tabSwitchCount, params.id, router, stopSession, revalidateInterview]);
+  }, [isGeneratingReport, interviewDetails, tabSwitchCount, params.id, router, stopSession, revalidateInterview]);
 
   handleGenerateReportRef.current = handleGenerateReport;
 
   const handleEndInterview = useCallback(() => {
+    setIsTerminateDialogOpen(true);
+  }, []);
+
+  const handleConfirmTermination = useCallback(() => {
+    setIsTerminateDialogOpen(false);
+    setIsClosing(true);
     setListening(false);
     stopSession();
-    requestGenerateReport();
-  }, [stopSession, requestGenerateReport]);
+    router.push("/reports");
+  }, [router, stopSession]);
 
-  const toggleMic = useCallback(() => setListening((current) => !current), []);
+  const toggleMic = useCallback(() => {
+    if (!isClosing) setListening((current) => !current);
+  }, [isClosing]);
   const toggleCamera = useCallback(() => setIsCameraOn((current) => !current), []);
-  const toggleCaptions = useCallback(() => setIsCaptionsOn((current) => !current), []);
+  const toggleTranscript = useCallback(
+    () => setIsTranscriptVisible((current) => !current),
+    [],
+  );
   const toggleSidePanel = useCallback(
     () => setIsSidePanelCollapsed((collapsed) => !collapsed),
     []
@@ -327,9 +394,14 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#050505] text-white p-4 gap-6">
-        <div style={{ width: 120, height: 120 }}>
-          <Orb hue={200} hoverIntensity={0.5} forceHoverState />
-        </div>
+        <Image
+          src="/neuraview-loader.png"
+          alt="Neuraview"
+          width={240}
+          height={180}
+          priority
+          className="site-loader__logo"
+        />
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center gap-2 text-white/60">
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -364,6 +436,32 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
       {/* Start Modal */}
       <StartInterviewModal show={showStartModal} onStart={startInterview} />
 
+      <AlertDialog
+        open={isTerminateDialogOpen}
+        onOpenChange={setIsTerminateDialogOpen}
+      >
+        <AlertDialogContent className="border-white/10 bg-slate-950 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Terminate this interview?</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Are you sure you want to terminate? No report will be generated
+              and this interview will not be scored.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white">
+              Continue interview
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmTermination}
+              className="bg-red-600 text-white hover:bg-red-500"
+            >
+              Yes, terminate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── PAGE CONTENT ──────────────────────────────────────────────── */}
       <div className="relative z-10 flex flex-col h-full max-w-[1800px] mx-auto w-full p-2 sm:p-3 md:p-4 gap-2 md:gap-3">
 
@@ -372,6 +470,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
           id={params.id}
           status={isActive ? "active" : isConnecting ? "connecting" : "idle"}
           interviewTitle={interviewDetails.topic ? `${interviewDetails.topic} Interview` : "Interview Session"}
+          timeLeft={timeLeft}
         />
 
         {/* ── MAIN AREA ─────────────────────────────────────────────────
@@ -399,6 +498,8 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
                 aiSpeaking={aiSpeaking}
                 listening={listening}
                 volume={volume}
+                messages={messages}
+                showTranscript={isTranscriptVisible}
               />
 
               {/* ── Picture-in-Picture Webcam ──────────────────────────
@@ -413,7 +514,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
                   md:w-[18vw] md:max-w-[200px]
                   lg:w-[14vw] lg:max-w-[220px]
                   transition-all duration-300
-                  ${!isCameraOn || !isActive ? "opacity-0 pointer-events-none" : "opacity-100"}
+                  ${!isCameraOn || !isActive || isTranscriptVisible ? "opacity-0 pointer-events-none" : "opacity-100"}
                 `}
               >
                 <motion.div
@@ -444,23 +545,6 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
                 </motion.div>
               </div>
 
-              {/* Captions overlay on AI stage */}
-              <AnimatePresence>
-                {isCaptionsOn && messages.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="absolute bottom-3 left-3 right-[calc(28vw+1.5rem)] sm:right-[calc(22vw+1.5rem)] md:right-[calc(18vw+1.5rem)] lg:right-[calc(14vw+1.5rem)] z-10 pointer-events-none"
-                  >
-                    <div className="px-4 py-2.5 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 max-w-[80%] mx-auto text-center">
-                      <p className="text-white/80 text-sm leading-relaxed line-clamp-2">
-                        {messages[messages.length - 1]?.content}
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
 
             {/* ── Connection error ──────────────────────────────────── */}
@@ -485,13 +569,14 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
               listening={listening}
               volume={volume}
               isCameraOn={isCameraOn}
-              isCaptionsOn={isCaptionsOn}
+              isTranscriptVisible={isTranscriptVisible}
               isSidePanelCollapsed={isSidePanelCollapsed}
               isInterviewCompleted={isInterviewCompleted}
               isGeneratingReport={isGeneratingReport}
+              micDisabled={isClosing}
               onToggleMic={toggleMic}
               onToggleCamera={toggleCamera}
-              onToggleCaptions={toggleCaptions}
+              onToggleTranscript={toggleTranscript}
               onToggleSidePanel={toggleSidePanel}
               onEndInterview={handleEndInterview}
               onGenerateReport={requestGenerateReport}
@@ -510,35 +595,10 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
               setMessages={setMessages}
               timeLeft={timeLeft}
               totalTime={totalTime}
-              isCaptionsOn={isCaptionsOn}
               collapsed={isSidePanelCollapsed}
               onCollapsedChange={setIsSidePanelCollapsed}
             />
           </div>
-        </div>
-
-        {/* ── Mobile Transcript Drawer ────────────────────────────────── */}
-        {/* On mobile (< lg) show a minimal horizontal scrollable message strip */}
-        <div className="lg:hidden flex-shrink-0">
-          <AnimatePresence>
-            {isCaptionsOn && messages.length > 0 && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="px-2 py-2 rounded-xl bg-[#0a0a14]/90 border border-white/[0.06] backdrop-blur-xl">
-                  <span className="text-[9px] font-bold text-blue-400/50 uppercase tracking-widest block mb-1">
-                    Latest
-                  </span>
-                  <p className="text-white/60 text-xs leading-relaxed line-clamp-2">
-                    {messages[messages.length - 1]?.content || ""}
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
 
       </div>

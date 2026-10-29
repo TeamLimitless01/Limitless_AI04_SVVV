@@ -15,6 +15,13 @@ type MetricAssessment = {
   evidence: MetricEvidence[];
 };
 
+type AnswerFeedback = {
+  answerMessageIndex: number;
+  observation: string;
+  nextStep: string;
+  evidenceQuote: string;
+};
+
 type GeneratedAnalysis = {
   candidateAnswersSummary: string;
   strengths: string[];
@@ -28,6 +35,7 @@ type GeneratedAnalysis = {
   rationale: string[];
   actionableNextSteps: string[];
   metrics: Record<MetricId, MetricAssessment>;
+  answerFeedback: AnswerFeedback[];
 };
 
 const defaultMetricDefinitions: Record<MetricId, { label: string; weight: number }> = {
@@ -89,7 +97,11 @@ const validateMetric = (
 
 const validateGeneratedAnalysis = (
   value: unknown,
-  transcript: TranscriptMessage[]
+  transcript: TranscriptMessage[],
+  questionAnswerPairs: {
+    questionMessageIndex: number | null;
+    answerMessageIndex: number;
+  }[]
 ): value is GeneratedAnalysis => {
   if (!isRecord(value)) return false;
 
@@ -109,14 +121,54 @@ const validateGeneratedAnalysis = (
     !isStringArray(value.insights) ||
     !isStringArray(value.rationale) ||
     !isStringArray(value.actionableNextSteps) ||
-    !isRecord(metrics)
+    !isRecord(metrics) ||
+    !Array.isArray(value.answerFeedback)
   ) {
     return false;
   }
 
-  return (Object.keys(defaultMetricDefinitions) as MetricId[]).every((metricId) =>
-    validateMetric(metrics[metricId], transcript)
+  const validMetrics = (Object.keys(defaultMetricDefinitions) as MetricId[]).every(
+    (metricId) => validateMetric(metrics[metricId], transcript)
   );
+  if (!validMetrics) return false;
+
+  const eligibleAnswerIndexes = new Set(
+    questionAnswerPairs
+      .filter((pair) => pair.questionMessageIndex !== null)
+      .map((pair) => pair.answerMessageIndex)
+  );
+  const seenAnswerIndexes = new Set<number>();
+
+  return value.answerFeedback.every((item) => {
+    if (
+      !isRecord(item) ||
+      !Number.isInteger(item.answerMessageIndex) ||
+      typeof item.observation !== "string" ||
+      !item.observation.trim() ||
+      item.observation.length > 500 ||
+      typeof item.nextStep !== "string" ||
+      !item.nextStep.trim() ||
+      item.nextStep.length > 500 ||
+      typeof item.evidenceQuote !== "string" ||
+      item.evidenceQuote.trim().length < 8
+    ) {
+      return false;
+    }
+
+    const answerIndex = item.answerMessageIndex as number;
+    const answer = transcript[answerIndex];
+    if (
+      !eligibleAnswerIndexes.has(answerIndex) ||
+      seenAnswerIndexes.has(answerIndex) ||
+      answer?.role !== "user" ||
+      !normalizeQuote(answer.content).includes(normalizeQuote(item.evidenceQuote))
+    ) {
+      return false;
+    }
+
+    seenAnswerIndexes.add(answerIndex);
+    return true;
+  });
 };
 
 export async function POST(req: Request) {
@@ -202,6 +254,7 @@ Metric definitions:
 - Treat likely speech-to-text errors conservatively. Score only the meaning that is reasonably clear; do not infer missing technical details or penalize garbled transcription as poor communication. If the answer cannot be interpreted well enough for a metric, use null for that metric.
 - Assess only candidate (user) messages, using their zero-based index in the full messages array.
 - For every numeric rating, include at least one exact, contiguous quote copied from a relevant candidate answer. Do not invent, paraphrase, or alter quotes. Include more than one quote only when multiple answers materially support the metric.
+- Also provide answerFeedback for each meaningful question-answer pair. Use the zero-based answerMessageIndex from questionAnswerPairs, a concise evidence-based observation, one practical nextStep, and an exact contiguous evidenceQuote copied from that answer (at least 8 characters). Do not provide per-answer scores; the existing three metrics are the only scored dimensions. Skip exchanges that are greetings, acknowledgements, small talk, or do not contain a meaningful question. When transcription is too unclear to support a judgment, say so neutrally and do not infer ability.
 - A null rating must have no evidence. Do not infer from unanswered or unasked questions.
 - Every strength, weakness, insight, rationale, and next step must be supported by the transcript and align with the metric ratings. Do not invent facts, competencies, or answer content.
 - Explain the rating with specific demonstrated evidence and realistic next steps; distinguish a true knowledge gap from an area the interview did not test.
@@ -244,6 +297,25 @@ Metric definitions:
                 finalSummary: { type: "string" },
                 rationale: { type: "array", items: { type: "string" } },
                 actionableNextSteps: { type: "array", items: { type: "string" } },
+                answerFeedback: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      answerMessageIndex: { type: "integer", minimum: 0 },
+                      observation: { type: "string", minLength: 1, maxLength: 500 },
+                      nextStep: { type: "string", minLength: 1, maxLength: 500 },
+                      evidenceQuote: { type: "string", minLength: 8 },
+                    },
+                    required: [
+                      "answerMessageIndex",
+                      "observation",
+                      "nextStep",
+                      "evidenceQuote",
+                    ],
+                    additionalProperties: false,
+                  },
+                },
                 metrics: {
                   type: "object",
                   properties: {
@@ -267,6 +339,7 @@ Metric definitions:
                 "finalSummary",
                 "rationale",
                 "actionableNextSteps",
+                "answerFeedback",
                 "metrics",
               ],
               additionalProperties: false,
@@ -336,7 +409,7 @@ Metric definitions:
       return Response.json({ error: "The report could not be validated. Please retry." }, { status: 502 });
     }
 
-    if (!validateGeneratedAnalysis(generated, transcript)) {
+    if (!validateGeneratedAnalysis(generated, transcript, questionAnswerPairs)) {
       console.error("Report provider returned unsupported or invalid assessment data");
       return Response.json({ error: "The report could not be validated against the transcript. Please retry." }, { status: 502 });
     }
@@ -389,6 +462,20 @@ Metric definitions:
         communicationStyle: generated.communicationStyle,
         problemSolvingApproach: generated.problemSolvingApproach,
         insights: generated.insights,
+        answerFeedback: generated.answerFeedback.flatMap((feedback) => {
+          const pair = questionAnswerPairs.find(
+            (item) => item.answerMessageIndex === feedback.answerMessageIndex
+          );
+          if (pair?.questionMessageIndex == null) return [];
+
+          return [{
+            question: transcript[pair.questionMessageIndex].content,
+            answerMessageIndex: feedback.answerMessageIndex,
+            observation: feedback.observation,
+            nextStep: feedback.nextStep,
+            evidenceQuote: feedback.evidenceQuote,
+          }];
+        }),
       },
       overallPerformance: {
         summary: generated.overallSummary,

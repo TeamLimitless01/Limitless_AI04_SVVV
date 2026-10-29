@@ -182,6 +182,51 @@ export default function InterviewReport({ report }: { report?: any }) {
                   "{answerAnalysis.candidateAnswersSummary || 'No summary available.'}"
                 </p>
 
+                {Array.isArray(answerAnalysis.answerFeedback) &&
+                  answerAnalysis.answerFeedback.length > 0 && (
+                    <div className="mb-6 space-y-4 sm:mb-8">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-blue-300">
+                        Question-by-question feedback
+                      </h3>
+                      {answerAnalysis.answerFeedback.map(
+                        (
+                          feedback: {
+                            question: string;
+                            answerMessageIndex: number;
+                            observation: string;
+                            nextStep: string;
+                            evidenceQuote: string;
+                          },
+                          index: number,
+                        ) => (
+                          <article
+                            key={`${feedback.answerMessageIndex}-${index}`}
+                            className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 sm:rounded-3xl sm:p-6"
+                          >
+                            <p className="mb-4 text-sm font-semibold leading-relaxed text-white">
+                              <span className="mr-2 text-blue-400">
+                                Q{index + 1}.
+                              </span>
+                              {feedback.question}
+                            </p>
+                            <blockquote className="mb-4 border-l-2 border-blue-500/40 pl-3 text-sm italic leading-relaxed text-slate-400">
+                              “{feedback.evidenceQuote}”
+                            </blockquote>
+                            <p className="mb-3 text-sm leading-relaxed text-slate-300">
+                              {feedback.observation}
+                            </p>
+                            <p className="text-sm leading-relaxed text-blue-200">
+                              <span className="font-bold text-blue-300">
+                                Try next:
+                              </span>{" "}
+                              {feedback.nextStep}
+                            </p>
+                          </article>
+                        ),
+                      )}
+                    </div>
+                  )}
+
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:gap-8">
                   <div className="rounded-2xl border border-emerald-500/10 bg-emerald-500/5 p-4 sm:rounded-3xl sm:p-6">
                     <h3 className="text-sm font-black uppercase tracking-widest text-emerald-400 mb-4 flex items-center gap-2">
