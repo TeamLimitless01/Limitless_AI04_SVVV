@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 
 export default function Hero() {
-  const fullText = "Master your future with Neuraview AI";
+  const fullText = "Master your Interviews with Neuraview AI";
   const [typed, setTyped] = useState("");
 
   useEffect(() => {
