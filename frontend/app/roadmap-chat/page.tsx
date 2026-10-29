@@ -26,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
+import GradientWaves from "@/components/GradientWaves";
 
 const ServicesPage = () => {
   const router = useRouter();
@@ -92,8 +93,23 @@ const ServicesPage = () => {
 
   return (
     <main className="relative min-h-screen bg-transparent selection:bg-blue-500/30 overflow-x-hidden">
-      {/* Premium Background Elements */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+        <GradientWaves
+          horizonColor="#2563EB"
+          waveColor="#7C3AED"
+          crestColor="#DBEAFE"
+          speed={0.25}
+          amplitude={2}
+          relief={0.8}
+          opacity={0.7}
+          grain={0.08}
+          quality="low"
+          dpr={1.25}
+          mouseInteraction
+          swellOnClick={false}
+          style={{ position: "absolute", inset: 0 }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/20 via-slate-950/35 to-slate-950/60" />
         <div className="absolute top-[-5%] right-[-5%] w-[45%] h-[45%] bg-blue-500/5 dark:bg-blue-600/5 blur-[120px] rounded-full animate-pulse" />
         <div className="absolute bottom-[10%] left-[-5%] w-[45%] h-[45%] bg-purple-500/5 dark:bg-purple-600/5 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
       </div>

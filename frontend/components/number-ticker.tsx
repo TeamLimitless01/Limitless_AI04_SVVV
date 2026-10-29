@@ -10,11 +10,12 @@ interface NumberTickerProps {
 }
 
 export default function NumberTicker({ value, duration = 2000, className = "" }: NumberTickerProps) {
-  const [displayValue, setDisplayValue] = useState(0)
+  const [displayValue, setDisplayValue] = useState(value)
 
   useEffect(() => {
     let start = 0
     const increment = value / (duration / 16)
+    setDisplayValue(0)
     const timer = setInterval(() => {
       start += increment
       if (start >= value) {

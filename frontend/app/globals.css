@@ -260,4 +260,39 @@
     animation: none;
   }
 }
+
+.site-loader {
+  position: fixed;
+  z-index: 9999;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #000;
+}
+
+.site-loader__logo {
+  width: clamp(120px, 28vw, 240px);
+  height: auto;
+  object-fit: contain;
+  animation: site-loader-pulse 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 24px rgba(37, 99, 235, 0.3));
+}
+
+@keyframes site-loader-pulse {
+  0%, 100% {
+    opacity: 0.82;
+    transform: translateY(4px) scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-loader__logo {
+    animation: none;
+  }
+}
  

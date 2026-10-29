@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import { Interview } from "@/models/Interview";
 import mongoose from "mongoose";
+import { revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
+import { dashboardCacheTag } from "@/lib/dashboard";
+import { reportsCacheTag } from "@/lib/reports";
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,6 +50,12 @@ export async function POST(req: NextRequest) {
     const data = body.data;
 
     const interview = await Interview.create(data);
+    if (interview.user) {
+      const userId = interview.user.toString();
+      revalidateTag(dashboardCacheTag(userId));
+      revalidateTag(reportsCacheTag(userId));
+    }
+    revalidatePath("/reports");
     return NextResponse.json({ data: interview.toJSON() });
   } catch (error: any) {
     console.error("POST Interviews Error:", error);
@@ -65,7 +75,18 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const data = body.data;
 
+    const previous = await Interview.findById(id).select("user").lean().exec();
     const updated = await Interview.findByIdAndUpdate(id, data, { new: true });
+    const affectedUserIds = new Set(
+      [previous?.user, updated?.user]
+        .filter(Boolean)
+        .map((userId) => userId!.toString())
+    );
+    for (const userId of affectedUserIds) {
+      revalidateTag(dashboardCacheTag(userId));
+      revalidateTag(reportsCacheTag(userId));
+    }
+    revalidatePath("/reports");
     return NextResponse.json({ data: updated?.toJSON() });
   } catch (error: any) {
     console.error("PUT Interviews Error:", error);

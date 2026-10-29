@@ -31,7 +31,7 @@ export default function Hero() {
       </motion.div> */}
 
       <motion.h1
-        className="mb-5 min-h-[2.2em] text-balance text-2xl font-extrabold leading-[1.1] tracking-tight text-red-300 sm:mb-8 sm:min-h-[1.2em] sm:text-4xl md:text-6xl lg:text-7xl"
+        className="mb-5 min-h-[2.2em] text-balance text-[2rem] font-extrabold leading-[1.08] tracking-tight text-red-300 sm:mb-8 sm:min-h-[1.2em] sm:text-4xl md:text-6xl lg:text-7xl"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}

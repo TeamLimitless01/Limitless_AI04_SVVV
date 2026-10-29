@@ -12,6 +12,8 @@ export interface IInterview extends Document {
   candidateName?: string;
   report?: any;
   interviewLanguage?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const InterviewSchema: Schema = new Schema({
@@ -31,7 +33,7 @@ const InterviewSchema: Schema = new Schema({
 InterviewSchema.set('toJSON', {
   virtuals: true,
   transform: (doc, ret) => {
-    ret.documentId = ret._id.toString();
+    ret.documentId = String(ret._id);
     ret.id = ret._id;
     return ret;
   }
