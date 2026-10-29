@@ -125,15 +125,6 @@ export default function AuthShell({
             <div className="pointer-events-none absolute -right-24 -top-24 h-52 w-52 rounded-full bg-blue-500/10 blur-3xl" />
 
             <div className="relative">
-              <Link
-                href="/"
-                className="hidden items-center gap-2 text-sm font-bold tracking-tight text-white lg:inline-flex"
-              >
-                <Sparkles className="h-4 w-4 text-blue-300" />
-                NeuraView
-                <ArrowRight className="h-3.5 w-3.5 rotate-[-45deg] text-slate-500" />
-              </Link>
-
               <div className="mt-1 sm:mt-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-300">
                   {eyebrow}
