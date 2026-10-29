@@ -52,15 +52,6 @@ export default function AuthShell({
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.65, ease: "easeOut" }}
         >
-          <Link href="/" className="mb-14 inline-flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.07] text-blue-300 shadow-lg shadow-blue-950/30">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <span className="text-lg font-bold tracking-tight text-white">
-              Neura<span className="text-blue-400">View</span>
-            </span>
-          </Link>
-
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-blue-300/15 bg-blue-400/[0.07] px-3 py-1.5 text-xs font-semibold tracking-wide text-blue-200">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
             YOUR NEXT INTERVIEW STARTS HERE
