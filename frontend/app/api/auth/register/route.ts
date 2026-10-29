@@ -3,13 +3,19 @@ import dbConnect from "@/lib/mongodb";
 import { User } from "@/models/User";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { sendWelcomeEmail } from "@/lib/email/sendWelcomeEmail";
 
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
-    const { username, email, password } = await req.json();
+    const { username, email, password, displayName } = await req.json();
 
-    if (!email || !password) {
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      !email.trim() ||
+      !password
+    ) {
       return NextResponse.json(
         { message: "Missing email or password" },
         { status: 400 }
@@ -31,6 +37,27 @@ export async function POST(req: NextRequest) {
       password: hashedPassword,
     });
 
+    let welcomeEmailSent = false;
+    try {
+      welcomeEmailSent = await sendWelcomeEmail(
+        newUser.email,
+        typeof displayName === "string"
+          ? displayName
+          : typeof username === "string"
+            ? username
+            : ""
+      );
+    } catch (emailError) {
+      console.error("Welcome email delivery failed", {
+        code:
+          typeof emailError === "object" &&
+          emailError !== null &&
+          "code" in emailError
+            ? emailError.code
+            : undefined,
+      });
+    }
+
     const token = jwt.sign(
       { id: newUser._id.toString(), email: newUser.email }, 
       process.env.NEXTAUTH_SECRET || 'secret',
@@ -44,6 +71,7 @@ export async function POST(req: NextRequest) {
         email: newUser.email,
         username: newUser.username,
       },
+      welcomeEmailSent,
     });
   } catch (error: any) {
     console.error("Register Error:", error);

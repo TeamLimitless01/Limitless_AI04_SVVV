@@ -1,6 +1,7 @@
 "use client";
 
 import AuthShell from "@/components/auth/AuthShell";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 import { Input } from "@/components/ui/ac-input";
 import { Label } from "@/components/ui/ac-label";
 import { strapi } from "@/lib/api/sdk";
@@ -25,21 +26,25 @@ export default function SignupFormDemo() {
       if (!name || !email || !password) {
         toast.error("Please enter all fields");
       }
-      const res = await strapi.register({
+      const registration = await strapi.register({
         username: `${name}${Math.floor(Math.random() * 10000)}`,
         email,
         password,
+        displayName: name,
       });
-      if (res?.user) {
+      if (registration?.user) {
         const res = await signIn("credentials", {
           redirect: false,
           identifier: email,
           password,
         });
         if (res?.ok) {
-          toast.success("Register successful");
-          const redirectRoute =
-            JSON.parse(localStorage.getItem("redirectRoute")!)! || "/";
+          toast.success(
+            registration.welcomeEmailSent
+              ? "Welcome to neuraview!"
+              : "Welcome to neuraview!",
+          );
+          const redirectRoute = localStorage.getItem("redirectRoute") || "/";
           localStorage.removeItem("redirectRoute");
           router.push(redirectRoute);
           router.refresh();
@@ -136,6 +141,12 @@ export default function SignupFormDemo() {
           )}
         </button>
       </form>
+      <div className="my-6 flex items-center gap-3">
+        <span className="h-px flex-1 bg-white/10" />
+        <span className="text-xs uppercase tracking-wider text-slate-500">or</span>
+        <span className="h-px flex-1 bg-white/10" />
+      </div>
+      <GoogleSignInButton />
     </AuthShell>
   );
 }

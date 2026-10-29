@@ -50,8 +50,33 @@ NEXT_PUBLIC_STRAPI_URL=http://localhost:1337
 
 # Auth
 NEXTAUTH_SECRET=your_nextauth_secret
-NEXTAUTH_URL=http://localhost:3000
+SITE_BASE_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
+
+# Google/Gmail SMTP for signup welcome emails (server-side only)
+GOOGLE_APP_NAME=NeuraView
+GOOGLE_APP_EMAIL=your-gmail-address@gmail.com
+GOOGLE_APP_PASSWORD=your-google-app-password
 ```
+
+For Google sign-in, create a Google OAuth 2.0 Web application client and add
+`http://localhost:3000/api/auth/callback/google` as an authorized redirect URI.
+Use the value of `SITE_BASE_URL` followed by `/api/auth/callback/google` as the
+authorized redirect URI for each environment. Keep the OAuth client secret
+server-side. The legacy `NEXTAUTH_URL` remains supported if
+`SITE_BASE_URL` is unset. The legacy variable names `OATH_CLIENT_ID` and
+`OATH_CLIENT_SECRET` are also accepted, but the `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` names above are preferred.
+
+`GOOGLE_APP_EMAIL` must be the Gmail account used to authenticate and send mail;
+`GOOGLE_APP_NAME` is only the display name. Generate an app password in your
+Google Account and keep it only in `.env.local` or your deployment's encrypted
+environment settings. For existing SMTP setups, `SMTP_USER` and `SMTP_PASSWORD`
+are accepted as credential fallbacks. The mail host defaults to Gmail
+(`smtp.gmail.com`, port `465`); `SMTP_HOST` and `SMTP_PORT` can override these
+non-secret connection settings. Welcome-email delivery is best-effort: signup
+still succeeds if SMTP is temporarily unavailable.
 
 Career Hub uses the Adzuna API (not HTML scraping) as its sole job-listing source. Keep the Adzuna credentials server-side
 (do not prefix them with `NEXT_PUBLIC_`). `ADZUNA_COUNTRY` selects the Adzuna
