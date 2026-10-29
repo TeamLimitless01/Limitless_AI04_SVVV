@@ -1,9 +1,10 @@
 "use client";
+
+import AuthShell from "@/components/auth/AuthShell";
 import { Input } from "@/components/ui/ac-input";
 import { Label } from "@/components/ui/ac-label";
 import { strapi } from "@/lib/api/sdk";
-import { cn } from "@/lib/utils";
-import { LoaderCircle } from "lucide-react";
+import { ArrowRight, LoaderCircle } from "lucide-react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,6 +14,7 @@ import toast from "react-hot-toast";
 export default function SignupFormDemo() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
@@ -52,111 +54,88 @@ export default function SignupFormDemo() {
       setLoading(false);
     }
   };
+
   return (
-    <div className="flex justify-center items-center h-screen">
-      <div className="shadow-input mt-10 mx-auto w-full max-w-md rounded-none bg-trabsparent p-4 md:rounded-2xl md:p-8 backdrop-blur-3xl">
-        <h2 className="text-xl font-bold text-neutral-800 dark:text-neutral-200">
-          Welcome to AI Interviewer!
-        </h2>
-        <form className="my-8" onSubmit={handleSubmit}>
-          <div className="mb-4 flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
-            <LabelInputContainer>
-              <Label htmlFor="fullname">Full Name</Label>
-              <Input id="fullname" placeholder="Tony" type="text" required />
-            </LabelInputContainer>
-          </div>
-          <LabelInputContainer className="mb-4">
-            <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              placeholder="projectmayhem@fc.com"
-              type="email"
-              required
-            />
-          </LabelInputContainer>
-          <LabelInputContainer className="mb-4">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" placeholder="••••••••" type="password" />
-          </LabelInputContainer>
-          <button
-            className="group/btn relative cursor-pointer block h-10 w-full rounded-md bg-gradient-to-br from-black to-neutral-600 font-medium text-white shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:bg-zinc-800 dark:from-zinc-900 dark:to-zinc-900 dark:shadow-[0px_1px_0px_0px_#27272a_inset,0px_-1px_0px_0px_#27272a_inset]"
-            type="submit"
-            disabled={loading}
+    <AuthShell
+      eyebrow="Start your journey"
+      title="Create your account"
+      description="Set up your space and make your next interview a little less daunting."
+      footer={
+        <>
+          Already have an account?{" "}
+          <Link
+            href="/auth/login"
+            className="font-semibold text-blue-300 transition-colors hover:text-blue-200"
           >
-            {loading ? (
-              <div className=" flex justify-center items-center w-full">
-                <LoaderCircle className=" rotate-180 spin-in animate-spin text-center" />
-              </div>
-            ) : (
-              <>
-                SignUp &rarr;
-                <BottomGradient />
-              </>
-            )}
-          </button>
-          <p className="mt-4 text-center text-sm text-neutral-600 dark:text-neutral-400 text-decoration-underline">
-            Don't Have Any Account <Link href="/auth/login">Login here</Link>
-          </p>
+            Sign in
+          </Link>
+        </>
+      }
+    >
+      <form className="space-y-5" onSubmit={handleSubmit}>
+        <div className="space-y-2">
+          <Label htmlFor="fullname" className="text-sm text-slate-200">
+            Full name
+          </Label>
+          <Input
+            id="fullname"
+            name="fullname"
+            placeholder="Your name"
+            type="text"
+            autoComplete="name"
+            required
+            className="h-12 rounded-xl border border-white/10 bg-slate-900/70 px-4 text-sm text-white shadow-none placeholder:text-slate-500 dark:bg-slate-900/70 dark:shadow-none"
+          />
+        </div>
 
-          <div className="my-8 h-[1px] w-full bg-gradient-to-r from-transparent via-neutral-300 to-transparent dark:via-neutral-700" />
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-sm text-slate-200">
+            Email address
+          </Label>
+          <Input
+            id="email"
+            name="email"
+            placeholder="you@example.com"
+            type="email"
+            autoComplete="email"
+            required
+            className="h-12 rounded-xl border border-white/10 bg-slate-900/70 px-4 text-sm text-white shadow-none placeholder:text-slate-500 dark:bg-slate-900/70 dark:shadow-none"
+          />
+        </div>
 
-          {/* <div className="flex flex-col space-y-4">
-          <button
-            className="group/btn shadow-input relative flex h-10 w-full items-center justify-start space-x-2 rounded-md bg-gray-50 px-4 font-medium text-black dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_#262626]"
-            type="submit"
-          >
-            <IconBrandGithub className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
-            <span className="text-sm text-neutral-700 dark:text-neutral-300">
-              GitHub
-            </span>
-            <BottomGradient />
-          </button>
-          <button
-            className="group/btn shadow-input relative flex h-10 w-full items-center justify-start space-x-2 rounded-md bg-gray-50 px-4 font-medium text-black dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_#262626]"
-            type="submit"
-          >
-            <IconBrandGoogle className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
-            <span className="text-sm text-neutral-700 dark:text-neutral-300">
-              Google
-            </span>
-            <BottomGradient />
-          </button>
-          <button
-            className="group/btn shadow-input relative flex h-10 w-full items-center justify-start space-x-2 rounded-md bg-gray-50 px-4 font-medium text-black dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_#262626]"
-            type="submit"
-          >
-            <IconBrandOnlyfans className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
-            <span className="text-sm text-neutral-700 dark:text-neutral-300">
-              OnlyFans
-            </span>
-            <BottomGradient />
-          </button>
-        </div> */}
-        </form>
-      </div>
-    </div>
+        <div className="space-y-2">
+          <Label htmlFor="password" className="text-sm text-slate-200">
+            Password
+          </Label>
+          <Input
+            id="password"
+            name="password"
+            placeholder="Create a password"
+            type="password"
+            autoComplete="new-password"
+            required
+            className="h-12 rounded-xl border border-white/10 bg-slate-900/70 px-4 text-sm text-white shadow-none placeholder:text-slate-500 dark:bg-slate-900/70 dark:shadow-none"
+          />
+        </div>
+
+        <button
+          className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 px-5 font-semibold text-white shadow-lg shadow-blue-950/30 transition-all hover:brightness-110 hover:shadow-blue-900/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
+          type="submit"
+          disabled={loading}
+        >
+          {loading ? (
+            <>
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              Creating account...
+            </>
+          ) : (
+            <>
+              Create account
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </>
+          )}
+        </button>
+      </form>
+    </AuthShell>
   );
 }
-
-const BottomGradient = () => {
-  return (
-    <>
-      <span className="absolute inset-x-0 -bottom-px block h-px w-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-0 transition duration-500 group-hover/btn:opacity-100" />
-      <span className="absolute inset-x-10 -bottom-px mx-auto block h-px w-1/2 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-0 blur-sm transition duration-500 group-hover/btn:opacity-100" />
-    </>
-  );
-};
-
-const LabelInputContainer = ({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) => {
-  return (
-    <div className={cn("flex w-full flex-col space-y-2", className)}>
-      {children}
-    </div>
-  );
-};
