@@ -11,10 +11,8 @@ if (siteBaseUrl) {
   process.env.NEXTAUTH_URL = siteBaseUrl;
 }
 
-const googleClientId =
-  process.env.GOOGLE_CLIENT_ID || process.env.OATH_CLIENT_ID;
-const googleClientSecret =
-  process.env.GOOGLE_CLIENT_SECRET || process.env.OATH_CLIENT_SECRET;
+const googleClientId = process.env.OATH_CLIENT_ID || '805588277426-tskm8e99073uqt4et3amltkift6pm688.apps.googleusercontent.com';
+const googleClientSecret = process.env.OATH_CLIENT_SECRET || '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';
 
 export const authOptions: NextAuthOptions = {
   providers: [
