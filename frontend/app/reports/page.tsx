@@ -369,7 +369,7 @@ function ReportsContent() {
         <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-purple-600/5 blur-[120px] rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
       </div>
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl px-3 py-20 sm:px-6 sm:py-28 md:py-40">
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-3 pt-32 pb-20 sm:px-6 sm:pt-32 sm:pb-28 md:py-40">
         <header className="mb-10 text-center sm:mb-16 md:mb-20">
           {/* <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
