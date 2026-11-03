@@ -379,7 +379,7 @@ Let the first suitable angle shape your opening question, then draw from later a
                 model: "gemini-3.8-live",
                 config: {
                     responseModalities: [Modality.AUDIO],
-                    maxOutputTokens: 256,
+                    // maxOutputTokens: 256,
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } },
                     systemInstruction,
                     outputAudioTranscription: {},

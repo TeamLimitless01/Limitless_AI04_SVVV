@@ -13,10 +13,13 @@ const currencyByCountry: Record<string, string> = {
 };
 
 const searchSchema = z.object({
-  skills: z.array(z.string().trim().min(1).max(80)).min(1).max(10),
+  skills: z.array(z.string().trim().min(1).max(80)).max(10).default([]),
   jobRole: z.string().trim().max(100).optional(),
   location: z.string().trim().max(100).optional(),
-});
+}).refine(
+  ({ skills, jobRole }) => skills.length > 0 || Boolean(jobRole?.trim()),
+  { message: "Provide a target role or at least one skill." },
+);
 
 type AdzunaJob = {
   id?: string | number;
@@ -53,7 +56,10 @@ export async function POST(request: NextRequest) {
 
   const parsed = searchSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Provide between 1 and 10 valid skills." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Provide a target role or between 1 and 10 valid skills." },
+      { status: 400 },
+    );
   }
 
  const ADZUNA_APP_ID = process.env.ADZUNA_APP_ID || "6719c685";
@@ -77,9 +83,6 @@ export async function POST(request: NextRequest) {
 
   const { skills, jobRole, location } = parsed.data;
   const uniqueSkills = [...new Set(skills.map((skill) => skill.trim()).filter(Boolean))];
-  if (uniqueSkills.length === 0) {
-    return NextResponse.json({ error: "Provide at least one non-empty skill." }, { status: 400 });
-  }
 
   const params = new URLSearchParams({
     app_id: appId,
