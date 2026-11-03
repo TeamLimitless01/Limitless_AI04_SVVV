@@ -85,7 +85,9 @@ INTERVIEW CONFIG:
 - Resume: ${resume}
 
 SAFETY RULES:
-- Max 4 sentences per response
+- Keep responses to 1-2 short sentences, with a hard maximum of 3.
+- Give at most one brief acknowledgment, then ask one focused question.
+- Avoid explanations or extra commentary unless the candidate asks for clarification.
 - No jargon or robotic phrases
 - Strictly Stay in ${interviewLanguage} language only
 - IMPORTANT: When the candidate asks to stop or when you're instructed it's over, use EXACT words: "The interview is completed, please generate report. Thanks for using Neuraview."
@@ -113,6 +115,7 @@ INTERVIEW SCRIPT:
       body: JSON.stringify({
         model: model || "openai",
         stream: isStream || false,
+        max_tokens: 160,
 
         messages: [
           {
